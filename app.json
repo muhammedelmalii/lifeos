@@ -1,0 +1,68 @@
+{
+  "expo": {
+    "name": "LifeOS",
+    "slug": "lifeos",
+    "version": "1.0.4",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#1a1a1a"
+    },
+    "scheme": "lifeos",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.lifeos.app",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "LifeOS uses your microphone for voice capture and journaling.",
+        "NSPhotoLibraryUsageDescription": "LifeOS analyzes photos to extract information for your timeline.",
+        "NSCalendarsUsageDescription": "LifeOS needs access to your calendars to proactively manage your time.",
+        "NSRemindersUsageDescription": "LifeOS needs access to reminders to sync your responsibilities."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#1a1a1a"
+      },
+      "package": "com.lifeos.app",
+      "permissions": [
+        "RECORD_AUDIO",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_CALENDAR",
+        "WRITE_CALENDAR",
+        "android.permission.READ_CALENDAR",
+        "android.permission.WRITE_CALENDAR"
+      ]
+    },
+    "web": {},
+    "plugins": [
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "color": "#4A9EFF"
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "LifeOS needs access to your calendars to proactively manage your time."
+        }
+      ],
+      "expo-localization"
+    ],
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "e40103c8-b15b-4473-9504-c2dccd8e4c70"
+      }
+    },
+    "owner": "mami34"
+  }
+}
