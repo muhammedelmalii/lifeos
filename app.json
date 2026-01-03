@@ -60,7 +60,8 @@
     ],
     "extra": {
       "router": {
-        "origin": false
+        "origin": false,
+        "htmlTitle": "LifeOS - Life Operating System"
       },
       "eas": {
         "projectId": "e40103c8-b15b-4473-9504-c2dccd8e4c70"

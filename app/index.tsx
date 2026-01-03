@@ -9,12 +9,17 @@ export default function Index() {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    // Wait for auth store to load
+    // Wait for auth store to load with timeout
     const timer = setTimeout(() => {
       setIsReady(true);
-    }, 100);
+      // If auth store is still loading after timeout, force it to ready
+      if (useAuthStore.getState().isLoading) {
+        useAuthStore.setState({ isLoading: false });
+      }
+    }, 2000); // Increased timeout for web
+    
     return () => clearTimeout(timer);
-  }, []);
+  }, [isLoading]);
 
   if (!isReady || isLoading) {
     return (

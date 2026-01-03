@@ -27,22 +27,38 @@ export default function RootLayout() {
     // Initialize error tracking
     errorTrackingService.initialize().catch(console.error);
 
-    // Initialize stores
+    // Initialize stores with timeout to prevent infinite loading
     const initStores = async () => {
       try {
-        await useSettingsStore.getState().loadSettings();
-        const settings = useSettingsStore.getState();
-        setI18nLanguage(settings.language);
+        // Set timeout to ensure we don't wait forever
+        const timeout = new Promise((resolve) => setTimeout(resolve, 5000));
         
-        await useResponsibilitiesStore.getState().loadResponsibilities();
-        await useListsStore.getState().loadLists();
+        const initPromise = (async () => {
+          try {
+            await useSettingsStore.getState().loadSettings();
+            const settings = useSettingsStore.getState();
+            setI18nLanguage(settings.language);
+            
+            await useResponsibilitiesStore.getState().loadResponsibilities();
+            await useListsStore.getState().loadLists();
+            
+            // Check state transitions on startup
+            await useResponsibilitiesStore.getState().checkStateTransitions();
+          } catch (error) {
+            console.error('Failed to initialize stores:', error);
+          }
+        })();
         
-        // Check state transitions on startup
-        await useResponsibilitiesStore.getState().checkStateTransitions();
+        await Promise.race([initPromise, timeout]);
       } catch (error) {
         console.error('Failed to initialize stores:', error);
       } finally {
         setIsReady(true);
+        // Also ensure auth store is ready
+        const authStore = useAuthStore.getState();
+        if (authStore.isLoading) {
+          useAuthStore.setState({ isLoading: false });
+        }
       }
     };
     
