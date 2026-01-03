@@ -40,6 +40,29 @@ export default function SettingsScreen() {
       >
         <Text style={styles.title}>{t('settings.title')}</Text>
 
+        {/* Profile Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Profil</Text>
+          <Card style={styles.profileCard}>
+            <View style={styles.profileHeader}>
+              <View style={styles.profileAvatar}>
+                <Text style={styles.profileAvatarText}>
+                  {(user?.name || user?.email || 'U')
+                    .split(' ')
+                    .map((n) => n[0])
+                    .join('')
+                    .toUpperCase()
+                    .slice(0, 2)}
+                </Text>
+              </View>
+              <View style={styles.profileInfo}>
+                <Text style={styles.profileName}>{user?.name || 'Kullanıcı'}</Text>
+                <Text style={styles.profileEmail}>{user?.email || 'Email ayarlanmamış'}</Text>
+              </View>
+            </View>
+          </Card>
+        </View>
+
         {/* Account Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('settings.account')}</Text>
@@ -191,6 +214,44 @@ const styles = StyleSheet.create({
   linkText: {
     ...typography.body,
     color: colors.accent.primary,
+  },
+  profileCard: {
+    padding: spacing.lg,
+    backgroundColor: colors.background.secondary,
+    borderWidth: 1,
+    borderColor: colors.border.primary,
+    borderRadius: 16,
+  },
+  profileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  profileAvatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.accent.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  profileAvatarText: {
+    ...typography.h2,
+    color: colors.text.primary,
+    fontWeight: '700',
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  profileName: {
+    ...typography.h3,
+    color: colors.text.primary,
+    marginBottom: spacing.xs / 2,
+    fontWeight: '600',
+  },
+  profileEmail: {
+    ...typography.bodySmall,
+    color: colors.text.secondary,
   },
 });
 
