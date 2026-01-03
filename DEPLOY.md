@@ -64,9 +64,11 @@ Detaylar için `MOBIL_TEST_REHBERI.md` dosyasına bak.
 
 ### Yaygın Hatalar:
 
+- **`npx expo export:web` hatası**: Vercel eski komut kullanıyor olabilir. Vercel Settings → General → Build & Development Settings → Build Command'ı `npm run build:web` olarak ayarla
 - `expo export` komutu bulunamadı → `npm install` çalıştır
 - Environment variables undefined → Vercel Settings'te değişkenleri kontrol et
 - Build timeout → Vercel Pro plan gerekebilir (büyük projeler için)
+- **Cache sorunu**: Vercel'de "Clear Cache and Redeploy" yap
 
 ## Notlar
 
