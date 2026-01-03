@@ -2,42 +2,28 @@
 
 A premium mobile app for managing responsibilities (not tasks) with AI-powered assistance.
 
-## Tech Stack
-
-- **React Native + Expo** (TypeScript)
-- **Expo Router** for navigation
-- **Zustand** for state management
-- **React Query** (TanStack Query) for async/server state
-- **Supabase** for backend (Auth + Postgres)
-- **Expo Notifications** for local notifications
-- **Expo Calendar** for calendar integration
-
-## Setup Instructions
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- Node.js 18+ and npm/yarn
+- Node.js 18+ and npm
 - Expo CLI: `npm install -g expo-cli`
-- iOS Simulator (Mac) or Android Emulator
-- Supabase account (for production)
+- iOS Simulator (Mac) or Android Emulator (optional)
 
 ### Installation
 
-1. **Clone and install dependencies:**
+1. **Install dependencies:**
    ```bash
    npm install
    ```
 
 2. **Set up environment variables:**
-   ```bash
-   cp .env.example .env
-   ```
    
-   Edit `.env` and add your Supabase credentials:
-   ```
-   EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
-   EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-   EXPO_PUBLIC_OPENAI_API_KEY=your_openai_api_key_optional
+   Create a `.env` file in the root directory:
+   ```env
+   EXPO_PUBLIC_SUPABASE_URL=your-supabase-url
+   EXPO_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+   EXPO_PUBLIC_OPENAI_API_KEY=your-openai-api-key
    ```
 
 3. **Run the app:**
@@ -46,194 +32,88 @@ A premium mobile app for managing responsibilities (not tasks) with AI-powered a
    ```
    
    Then press:
-   - `i` for iOS simulator
+   - `w` for web browser
    - `a` for Android emulator
+   - `i` for iOS simulator
    - Scan QR code with Expo Go app on your device
 
-### Development Commands
+## 📱 Features
+
+- **AI-Powered Command Parsing** - Natural language to structured responsibilities
+- **Smart Scheduling** - Automatic time and energy management
+- **Proactive Help** - Context-aware suggestions
+- **Wellness Insights** - Work-life balance tracking
+- **Offline-First** - Works without internet connection
+- **Supabase Integration** - Cloud sync when online
+
+## 🛠️ Development
+
+### Commands
 
 - `npm start` - Start Expo dev server
 - `npm run android` - Run on Android
 - `npm run ios` - Run on iOS
+- `npm run web` - Run on web
+- `npm run build:web` - Build for web (Vercel)
 - `npm run lint` - Run ESLint
 - `npm run format` - Format code with Prettier
 - `npm test` - Run tests
-
-## Architecture
 
 ### Project Structure
 
 ```
 /app                    # Expo Router screens
   /(auth)               # Authentication screens
-  /(onboarding)        # Onboarding flow
+  /(onboarding)           # Onboarding flow
   /(tabs)              # Main app tabs
   /responsibility      # Responsibility detail screens
   /couldnt-do-it       # Reschedule flow
 
 /src
   /components          # Reusable UI components
-    /ui                # Base UI kit (Button, Card, etc.)
-  /features            # Feature-specific components
-  /services            # Business logic services
-    - notifications.ts  # Notification scheduling
-    - calendar.ts       # Calendar integration
-    - aiParser.ts       # Command parsing
-    - ocr.ts            # Image text extraction
-    - voice.ts          # Voice recognition
-  /store               # Zustand stores
-    - auth.ts
-    - responsibilities.ts
-    - lists.ts
-  /utils               # Utility functions
-    - date.ts
-    - rrule.ts
+  /services            # Business logic & API
+  /store               # Zustand state management
+  /theme               # Design system
   /types               # TypeScript types
-  /theme               # Design system (colors, typography, spacing)
+  /utils               # Utility functions
+  /i18n                # Internationalization
+
+/database              # Supabase schema
 ```
 
-### Domain Model
+## 🔧 Tech Stack
 
-**Responsibility** (not "task"):
-- `id`, `title`, `description`, `category`
-- `energyRequired`: low/medium/high
-- `schedule`: one-time or recurring (with RRULE)
-- `reminderStyle`: gentle/persistent/critical
-- `escalationRules`: array of reminder offsets
-- `status`: active/completed/missed/snoozed/archived
-- `checklist`: array of sub-items
-- `createdFrom`: text/voice/photo
+- **React Native + Expo** (TypeScript)
+- **Expo Router** for navigation
+- **Zustand** for state management
+- **React Query** for async/server state
+- **Supabase** for backend (Auth + Postgres)
+- **OpenAI GPT-4o** for AI parsing
+- **Expo Notifications** for local notifications
+- **Expo Calendar** for calendar integration
 
-**List**:
-- `id`, `name`, `type` (market/home/work/custom)
-- `items`: array of ListItem
+## 📦 Deployment
 
-### State Management
+### Web (Vercel)
 
-- **Zustand** for client state (responsibilities, lists, auth)
-- **React Query** for server state (when Supabase is connected)
-- **AsyncStorage** for local persistence
+1. Push to GitHub
+2. Connect to Vercel
+3. Add environment variables
+4. Deploy automatically
 
-### Reminder Engine
+See `vercel.json` for configuration.
 
-The reminder engine schedules local notifications based on:
-- Responsibility schedule datetime
-- Reminder style (gentle/persistent/critical)
-- Escalation rules (multiple reminders at different offsets)
+### Mobile (EAS Build)
 
-Notifications are scheduled when a responsibility is created/updated and cancelled when completed/archived.
+1. Install EAS CLI: `npm install -g eas-cli`
+2. Login: `eas login`
+3. Build: `eas build --platform android --profile preview`
 
-### AI Command Parser
+## 📄 Legal
 
-Hybrid approach:
-1. **Rule-based parsing** (MVP): Extracts date/time, recurring patterns, energy level, reminder style from natural language
-2. **OpenAI adapter** (optional): Can be enabled with API key for more sophisticated parsing
+- [Privacy Policy](./privacy-policy.md)
+- [Terms of Service](./terms-of-service.md)
 
-Returns structured `ParsedCommand` with:
-- Title, description
-- Schedule (datetime, timezone, RRULE)
-- Energy level, reminder style
-- List actions
-
-## Features (MVP)
-
-✅ **Authentication**
-- Apple/Google sign-in (placeholders)
-- Email magic link (placeholder)
-
-✅ **Onboarding**
-- Welcome → Permissions → Calendar → Reminder Style → Widget
-
-✅ **Home Command Center**
-- Text/voice/photo input
-- AI understanding confirmation sheet
-- Next critical responsibility card
-
-✅ **Responsibility Management**
-- Create from command → confirmation → stored
-- Detail screen with checklist, schedule, snooze
-- "Couldn't do it" flow with reschedule
-
-✅ **Inbox**
-- Missed critical responsibilities
-- Snoozed items
-- Upcoming responsibilities
-
-✅ **Notifications**
-- Local notification scheduling
-- Escalation rules
-- Critical reminder patterns
-
-✅ **Calendar Integration**
-- Permission requests
-- Event creation (placeholder)
-
-✅ **Voice & Photo**
-- Voice input (placeholder STT)
-- Photo capture with OCR (mock)
-
-## What Works (MVP Checklist)
-
-- ✅ Project structure and navigation
-- ✅ Theme system and UI components
-- ✅ Authentication flow (mock)
-- ✅ Onboarding screens
-- ✅ Responsibility creation from text/voice/photo
-- ✅ AI command parsing (rule-based)
-- ✅ Responsibility detail screen
-- ✅ Checklist management
-- ✅ Snooze functionality
-- ✅ "Couldn't do it" reschedule flow
-- ✅ Inbox with grouped responsibilities
-- ✅ Local notification scheduling
-- ✅ Zustand store with AsyncStorage persistence
-- ✅ Settings screen
-
-## What's Placeholder/Mock
-
-- **Authentication**: Uses mock user, not real Supabase auth
-- **Voice Recognition**: Returns mock transcript (needs real STT service)
-- **OCR**: Returns mock extracted text (needs real OCR service)
-- **Calendar Events**: Creates events but may need platform-specific setup
-- **OpenAI Parser**: Falls back to rule-based if no API key
-
-## Next Steps (Post-MVP)
-
-1. **Integrate real services:**
-   - Supabase Auth (Apple/Google/Email magic link)
-   - Real speech-to-text (Google Speech-to-Text or similar)
-   - Real OCR (Google Vision API or Tesseract)
-   - OpenAI API for command parsing
-
-2. **Additional features:**
-   - Now Mode (quick wins)
-   - Critical Reminder full-screen pattern
-   - Daily Briefing (morning/evening)
-   - Lists with Market Mode
-   - Calendar sync
-
-3. **Polish:**
-   - Error handling improvements
-   - Loading states
-   - Offline support
-   - Data sync across devices
-
-## Testing
-
-Run tests:
-```bash
-npm test
-```
-
-Current test coverage:
-- Reminder engine scheduling logic
-- Command parser (rule-based)
-
-## Environment Variables
-
-See `.env.example` for required variables.
-
-## License
+## 📝 License
 
 Private - All rights reserved
-

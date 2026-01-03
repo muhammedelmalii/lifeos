@@ -10,7 +10,7 @@ node_modules/
 .env_SETUP.md
 
 # Build outputs
-# dist/  # Keep dist for Vercel deployment
+dist/
 build/
 *.apk
 *.ipa

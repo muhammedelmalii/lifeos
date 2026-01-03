@@ -1,8 +1,6 @@
 node_modules
 .expo
 .expo-shared
-dist
-web-build
 *.log
 .DS_Store
 .vscode
@@ -18,4 +16,7 @@ ios
 .git
 .env.local
 .env.*.local
-
+coverage
+*.test.ts
+*.test.tsx
+__tests__
