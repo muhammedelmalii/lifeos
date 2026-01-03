@@ -11,8 +11,8 @@ export default function TabsLayout() {
           backgroundColor: colors.background.secondary,
           borderTopColor: colors.border.primary,
           borderTopWidth: 1,
-          height: 60,
-          paddingBottom: 8,
+          height: 64,
+          paddingBottom: 10,
           paddingTop: 8,
         },
         tabBarActiveTintColor: colors.accent.primary,
@@ -20,6 +20,10 @@ export default function TabsLayout() {
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '600',
+          marginTop: 4,
+        },
+        tabBarIconStyle: {
+          marginTop: 4,
         },
       }}
     >
@@ -28,13 +32,6 @@ export default function TabsLayout() {
         options={{
           title: 'Home',
           tabBarIcon: ({ color }) => <TabIcon name="home" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="inbox"
-        options={{
-          title: 'Inbox',
-          tabBarIcon: ({ color }) => <TabIcon name="inbox" color={color} />,
         }}
       />
       <Tabs.Screen
@@ -51,6 +48,12 @@ export default function TabsLayout() {
           tabBarIcon: ({ color }) => <TabIcon name="settings" color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="inbox"
+        options={{
+          href: null, // Hide from tab bar
+        }}
+      />
     </Tabs>
   );
 }
@@ -58,7 +61,6 @@ export default function TabsLayout() {
 function TabIcon({ name, color }: { name: string; color: string }) {
   const icons: Record<string, string> = {
     home: '🏠',
-    inbox: '📥',
     calendar: '📅',
     settings: '⚙️',
   };

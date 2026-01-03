@@ -10,36 +10,33 @@ import { formatDate, formatTime } from '@/utils/date';
 import { Responsibility } from '@/types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const DAY_WIDTH = SCREEN_WIDTH - spacing.lg * 2; // Full width minus padding
-const HOUR_HEIGHT = 60; // Compact hour height
-const HOURS_VISIBLE = 16; // Show 6 AM to 10 PM by default
+const DAY_WIDTH = SCREEN_WIDTH - spacing.lg * 2;
+const HOUR_HEIGHT = 70;
+const HOURS_VISIBLE = 16;
 
 export default function PlanScreen() {
   const router = useRouter();
   const { responsibilities, loadResponsibilities } = useResponsibilitiesStore();
-  const [selectedDateIndex, setSelectedDateIndex] = useState(3); // Today is index 3 (center)
+  const [selectedDateIndex, setSelectedDateIndex] = useState(3);
   const horizontalScrollRef = useRef<ScrollView>(null);
   const verticalScrollRef = useRef<ScrollView>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
     loadResponsibilities();
-    // Scroll to today
     setTimeout(() => {
       horizontalScrollRef.current?.scrollTo({
         x: selectedDateIndex * (DAY_WIDTH + spacing.md),
         animated: false,
       });
-      // Scroll to current hour
       const hour = getHours(currentTime);
-      const scrollY = Math.max(0, (hour - 6) * HOUR_HEIGHT - 100);
+      const scrollY = Math.max(0, (hour - 6) * HOUR_HEIGHT - 150);
       verticalScrollRef.current?.scrollTo({
         y: scrollY,
         animated: false,
       });
     }, 100);
 
-    // Update current time every minute
     const interval = setInterval(() => {
       setCurrentTime(new Date());
     }, 60000);
@@ -47,7 +44,6 @@ export default function PlanScreen() {
     return () => clearInterval(interval);
   }, []);
 
-  // Get responsibilities for a specific day
   const getResponsibilitiesForDay = (date: Date): Responsibility[] => {
     const dayStart = startOfDay(date);
     const dayEnd = addDays(dayStart, 1);
@@ -60,7 +56,6 @@ export default function PlanScreen() {
       .sort((a, b) => a.schedule.datetime.getTime() - b.schedule.datetime.getTime());
   };
 
-  // Generate days (7 days: 3 days ago, today, 3 days ahead)
   const generateDays = (): Date[] => {
     const days: Date[] = [];
     const today = new Date();
@@ -71,9 +66,6 @@ export default function PlanScreen() {
   };
 
   const days = generateDays();
-  const today = new Date();
-
-  // Generate hours (6 AM to 10 PM)
   const hours = Array.from({ length: HOURS_VISIBLE }, (_, i) => i + 6);
 
   const handleDaySelect = (index: number) => {
@@ -86,10 +78,8 @@ export default function PlanScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Compact Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Plan</Text>
-        {/* Horizontal Date Selector */}
         <ScrollView 
           horizontal 
           showsHorizontalScrollIndicator={false}
@@ -108,7 +98,7 @@ export default function PlanScreen() {
                 activeOpacity={0.7}
               >
                 <Text style={[styles.dateDay, isSelected && styles.dateDaySelected]}>
-                  {isTodayDate ? 'Bugün' : isTomorrow(day) ? 'Yarın' : format(day, 'EEE')}
+                  {isTodayDate ? 'Today' : isTomorrow(day) ? 'Tomorrow' : format(day, 'EEE')}
                 </Text>
                 <Text style={[styles.dateNumber, isSelected && styles.dateNumberSelected]}>
                   {day.getDate()}
@@ -124,7 +114,6 @@ export default function PlanScreen() {
         </ScrollView>
       </View>
 
-      {/* Horizontal Timeline Scroll */}
       <ScrollView
         ref={horizontalScrollRef}
         horizontal
@@ -146,14 +135,13 @@ export default function PlanScreen() {
           
           return (
             <View key={dayIndex} style={styles.dayColumn}>
-              {/* Day Header */}
               <View style={styles.dayHeader}>
                 <View>
                   <Text style={styles.dayTitle}>
-                    {isTodayDate ? 'Bugün' : isTomorrow(day) ? 'Yarın' : formatDate(day)}
+                    {isTodayDate ? 'Today' : isTomorrow(day) ? 'Tomorrow' : formatDate(day)}
                   </Text>
                   <Text style={styles.daySubtitle}>
-                    {format(day, 'd MMMM yyyy')}
+                    {format(day, 'MMMM d, yyyy')}
                   </Text>
                 </View>
                 {dayResponsibilities.length > 0 && (
@@ -163,14 +151,12 @@ export default function PlanScreen() {
                 )}
               </View>
 
-              {/* Timeline with hours */}
               <ScrollView
                 ref={dayIndex === selectedDateIndex ? verticalScrollRef : null}
                 style={styles.timelineScroll}
                 contentContainerStyle={styles.timelineContent}
                 showsVerticalScrollIndicator={false}
               >
-                {/* Current time indicator for today */}
                 {isTodayDate && (
                   <View
                     style={[
@@ -185,7 +171,6 @@ export default function PlanScreen() {
                   </View>
                 )}
 
-                {/* Hour markers */}
                 {hours.map((hour) => (
                   <View key={hour} style={styles.hourRow}>
                     <Text style={styles.hourText}>
@@ -195,17 +180,15 @@ export default function PlanScreen() {
                   </View>
                 ))}
 
-                {/* Responsibilities positioned by time */}
                 {dayResponsibilities.map((responsibility) => {
                   const rHour = getHours(responsibility.schedule.datetime);
                   const rMinute = getMinutes(responsibility.schedule.datetime);
                   
-                  // Only show if in visible hours range
                   if (rHour < 6 || rHour > 21) return null;
                   
                   const topPosition = (rHour - 6) * HOUR_HEIGHT + (rMinute / 60) * HOUR_HEIGHT;
-                  const duration = 60; // Default 1 hour
-                  const height = Math.max((duration / 60) * HOUR_HEIGHT, 50);
+                  const duration = 60;
+                  const height = Math.max((duration / 60) * HOUR_HEIGHT, 60);
 
                   const isCritical = responsibility.reminderStyle === 'critical';
                   const isPersistent = responsibility.reminderStyle === 'persistent';
@@ -238,7 +221,7 @@ export default function PlanScreen() {
                           </Text>
                           {isCritical && (
                             <View style={styles.criticalBadge}>
-                              <Text style={styles.criticalBadgeText}>!</Text>
+                              <Icon name="alertCircle" size={10} color={colors.text.primary} />
                             </View>
                           )}
                         </View>
@@ -255,15 +238,14 @@ export default function PlanScreen() {
                   );
                 })}
 
-                {/* Empty state */}
                 {dayResponsibilities.length === 0 && (
                   <View style={styles.emptyState}>
-                    <Icon name="calendarIcon" size={56} color={colors.text.tertiary} />
+                    <Icon name="calendarIcon" size={40} color={colors.text.tertiary} />
                     <Text style={styles.emptyStateTitle}>
-                      {isTodayDate ? 'Bugün boş' : 'Boş gün'}
+                      {isTodayDate ? 'No tasks today' : 'No tasks'}
                     </Text>
                     <Text style={styles.emptyStateText}>
-                      {isTodayDate ? 'Henüz planlanmış bir şey yok' : 'Bu gün için sorumluluk yok'}
+                      {isTodayDate ? 'Enjoy your free time' : 'No responsibilities scheduled'}
                     </Text>
                   </View>
                 )}
@@ -291,7 +273,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     ...typography.h1,
-    fontSize: 32,
+    fontSize: 28,
     color: colors.text.primary,
     marginBottom: spacing.md,
     fontWeight: '700',
@@ -303,14 +285,14 @@ const styles = StyleSheet.create({
   dateButton: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: 16,
+    borderRadius: 14,
     backgroundColor: colors.background.secondary,
     borderWidth: 2,
     borderColor: colors.border.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 75,
-    height: 70,
+    minWidth: 70,
+    height: 68,
     position: 'relative',
   },
   dateButtonSelected: {
@@ -321,7 +303,7 @@ const styles = StyleSheet.create({
   dateDay: {
     ...typography.caption,
     color: colors.text.tertiary,
-    fontSize: 11,
+    fontSize: 10,
     textTransform: 'uppercase',
     fontWeight: '600',
     marginBottom: spacing.xs / 2,
@@ -343,9 +325,9 @@ const styles = StyleSheet.create({
     top: -6,
     right: -6,
     backgroundColor: colors.status.error,
-    borderRadius: 12,
-    minWidth: 22,
-    height: 22,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: spacing.xs / 2,
@@ -354,7 +336,7 @@ const styles = StyleSheet.create({
   dateBadgeText: {
     ...typography.caption,
     color: colors.text.primary,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
   },
   timelineContainer: {
@@ -376,7 +358,7 @@ const styles = StyleSheet.create({
   },
   dayTitle: {
     ...typography.h2,
-    fontSize: 20,
+    fontSize: 18,
     color: colors.text.primary,
     fontWeight: '700',
     marginBottom: spacing.xs / 2,
@@ -388,9 +370,9 @@ const styles = StyleSheet.create({
   },
   dayCount: {
     backgroundColor: colors.accent.primary,
-    borderRadius: 16,
-    width: 32,
-    height: 32,
+    borderRadius: 14,
+    width: 28,
+    height: 28,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -398,7 +380,7 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.text.primary,
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: 13,
   },
   timelineScroll: {
     flex: 1,
@@ -454,11 +436,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: spacing.md + 50 + spacing.md,
     right: spacing.md,
-    borderRadius: 12,
+    borderRadius: 10,
     borderLeftWidth: 4,
     padding: spacing.md,
     ...shadows.md,
     zIndex: 5,
+    minHeight: 60,
   },
   responsibilityCardContent: {
     flex: 1,
@@ -476,17 +459,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   criticalBadge: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
     backgroundColor: colors.status.error,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  criticalBadgeText: {
-    color: colors.text.primary,
-    fontSize: 11,
-    fontWeight: '700',
   },
   responsibilityTitle: {
     ...typography.body,
@@ -506,14 +484,15 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: spacing.xxl * 2,
-    minHeight: 400,
+    paddingVertical: spacing.xxl,
+    minHeight: 300,
   },
   emptyStateTitle: {
     ...typography.h3,
     color: colors.text.secondary,
     marginTop: spacing.md,
     marginBottom: spacing.xs,
+    fontSize: 16,
   },
   emptyStateText: {
     ...typography.body,

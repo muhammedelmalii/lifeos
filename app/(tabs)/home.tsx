@@ -23,11 +23,14 @@ export default function HomeScreen() {
   const [showAISheet, setShowAISheet] = useState(false);
   const [parsedCommand, setParsedCommand] = useState<any>(null);
   const [isInputFocused, setIsInputFocused] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'missed' | 'upcoming'>('all');
   
   const { 
     getNextCritical, 
     loadResponsibilities, 
-    getUpcoming, 
+    getUpcoming,
+    getMissed,
+    getSnoozed,
     getNowMode,
     updateResponsibility,
     checkStateTransitions 
@@ -35,12 +38,25 @@ export default function HomeScreen() {
   
   const user = useAuthStore((state) => state.user);
   const nextCritical = getNextCritical();
-  const upcoming = getUpcoming().slice(0, 5);
-  const nowModeItems = getNowMode().slice(0, 3);
+  const missed = getMissed();
+  const snoozed = getSnoozed();
+  const upcoming = getUpcoming();
+  const nowModeItems = getNowMode().slice(0, 4);
   
-  // Stats
-  const todayUpcoming = getUpcoming();
-  const tasksLeft = todayUpcoming.length;
+  // Filter based on active tab
+  const getFilteredItems = () => {
+    switch (activeTab) {
+      case 'missed':
+        return missed;
+      case 'upcoming':
+        return upcoming;
+      default:
+        return [...missed, ...upcoming];
+    }
+  };
+
+  const filteredItems = getFilteredItems();
+  const tasksLeft = missed.length + upcoming.length;
 
   useEffect(() => {
     loadResponsibilities();
@@ -52,6 +68,7 @@ export default function HomeScreen() {
     const parsed = await parseCommandWithAI(inputText, 'text');
     setParsedCommand(parsed);
     setShowAISheet(true);
+    setInputText('');
   };
 
   const handleVoicePress = async () => {
@@ -93,7 +110,7 @@ export default function HomeScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Modern Header */}
+        {/* Header */}
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>
@@ -112,7 +129,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Compact Input Section */}
+        {/* Compact Input */}
         <View style={styles.inputSection}>
           <View style={[
             styles.inputContainer,
@@ -137,7 +154,7 @@ export default function HomeScreen() {
                 onPress={handleTextSubmit}
                 activeOpacity={0.7}
               >
-                <Icon name="send" size={20} color={colors.text.primary} />
+                <Icon name="send" size={18} color={colors.text.primary} />
               </TouchableOpacity>
             )}
           </View>
@@ -149,7 +166,7 @@ export default function HomeScreen() {
               onPress={handleVoicePress}
               activeOpacity={0.7}
             >
-              <Icon name="microphone" size={18} color={isListening ? colors.text.primary : colors.text.secondary} />
+              <Icon name="microphone" size={16} color={isListening ? colors.text.primary : colors.text.secondary} />
               <Text style={[styles.actionText, isListening && styles.actionTextActive]}>Voice</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -157,13 +174,13 @@ export default function HomeScreen() {
               onPress={handlePhotoPress}
               activeOpacity={0.7}
             >
-              <Icon name="camera" size={18} color={colors.text.secondary} />
+              <Icon name="camera" size={16} color={colors.text.secondary} />
               <Text style={styles.actionText}>Scan</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Next Critical - Hero Card */}
+        {/* Next Critical */}
         {nextCritical && (
           <TouchableOpacity
             activeOpacity={0.9}
@@ -172,7 +189,7 @@ export default function HomeScreen() {
           >
             <View style={styles.heroHeader}>
               <View style={styles.heroLabel}>
-                <Icon name="alertCircle" size={14} color={colors.status.error} />
+                <Icon name="alertCircle" size={12} color={colors.status.error} />
                 <Text style={styles.heroLabelText}>Next Critical</Text>
               </View>
               <Badge 
@@ -182,7 +199,7 @@ export default function HomeScreen() {
             </View>
             <Text style={styles.heroTitle} numberOfLines={2}>{nextCritical.title}</Text>
             {nextCritical.description && (
-              <Text style={styles.heroDescription} numberOfLines={2}>
+              <Text style={styles.heroDescription} numberOfLines={1}>
                 {nextCritical.description}
               </Text>
             )}
@@ -191,17 +208,17 @@ export default function HomeScreen() {
                 {formatDateTime(nextCritical.schedule.datetime).split(' ')[1]}
               </Text>
               <View style={styles.heroArrow}>
-                <Icon name="arrowRight" size={20} color={colors.accent.primary} />
+                <Icon name="arrowRight" size={18} color={colors.accent.primary} />
               </View>
             </View>
           </TouchableOpacity>
         )}
 
-        {/* Now Mode - Quick Actions */}
+        {/* Quick Actions Grid */}
         {nowModeItems.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Quick Actions</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
+            <View style={styles.quickGrid}>
               {nowModeItems.map((item) => (
                 <TouchableOpacity
                   key={item.id}
@@ -210,63 +227,159 @@ export default function HomeScreen() {
                   activeOpacity={0.8}
                 >
                   <View style={styles.quickCardIcon}>
-                    <Icon name="check" size={20} color={colors.accent.primary} />
+                    <Icon name="check" size={18} color={colors.accent.primary} />
                   </View>
                   <Text style={styles.quickCardTitle} numberOfLines={2}>{item.title}</Text>
-                  <Text style={styles.quickCardSubtitle}>Low energy</Text>
                 </TouchableOpacity>
               ))}
-            </ScrollView>
+            </View>
           </View>
         )}
 
-        {/* Today's Schedule */}
-        {upcoming.length > 0 && (
+        {/* Tasks Tabs */}
+        {(missed.length > 0 || upcoming.length > 0) && (
           <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Today</Text>
-              <TouchableOpacity onPress={() => router.push('/(tabs)/plan')}>
-                <Text style={styles.sectionLink}>View all</Text>
-              </TouchableOpacity>
-            </View>
-            {upcoming.map((item) => (
-              <SwipeableRow
-                key={item.id}
-                onSwipeRight={async () => await handleComplete(item.id)}
-                onSwipeLeft={() => router.push(`/couldnt-do-it/${item.id}`)}
-              >
+            <View style={styles.tabsHeader}>
+              <Text style={styles.sectionTitle}>Tasks</Text>
+              <View style={styles.tabs}>
                 <TouchableOpacity
-                  style={styles.scheduleItem}
-                  onPress={() => router.push(`/responsibility/${item.id}`)}
-                  activeOpacity={0.7}
+                  style={[styles.tab, activeTab === 'all' && styles.tabActive]}
+                  onPress={() => setActiveTab('all')}
                 >
-                  <View style={styles.scheduleTime}>
-                    <Text style={styles.scheduleTimeText}>
-                      {formatDateTime(item.schedule.datetime).split(' ')[1] || '09:00'}
-                    </Text>
-                  </View>
-                  <View style={styles.scheduleContent}>
-                    <Text style={styles.scheduleTitle} numberOfLines={1}>{item.title}</Text>
-                    {item.category && (
-                      <Text style={styles.scheduleCategory}>{item.category}</Text>
-                    )}
-                  </View>
-                  <TouchableOpacity
-                    style={styles.scheduleCheck}
-                    onPress={() => handleComplete(item.id)}
-                  >
-                    <View style={styles.checkCircle} />
-                  </TouchableOpacity>
+                  <Text style={[styles.tabText, activeTab === 'all' && styles.tabTextActive]}>All</Text>
+                  {(missed.length + upcoming.length) > 0 && (
+                    <View style={styles.tabBadge}>
+                      <Text style={styles.tabBadgeText}>{missed.length + upcoming.length}</Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
-              </SwipeableRow>
+                {missed.length > 0 && (
+                  <TouchableOpacity
+                    style={[styles.tab, activeTab === 'missed' && styles.tabActive]}
+                    onPress={() => setActiveTab('missed')}
+                  >
+                    <Text style={[styles.tabText, activeTab === 'missed' && styles.tabTextActive]}>Missed</Text>
+                    <View style={styles.tabBadge}>
+                      <Text style={styles.tabBadgeText}>{missed.length}</Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={[styles.tab, activeTab === 'upcoming' && styles.tabActive]}
+                  onPress={() => setActiveTab('upcoming')}
+                >
+                  <Text style={[styles.tabText, activeTab === 'upcoming' && styles.tabTextActive]}>Upcoming</Text>
+                  {upcoming.length > 0 && (
+                    <View style={styles.tabBadge}>
+                      <Text style={styles.tabBadgeText}>{upcoming.length}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Tasks List */}
+            {filteredItems.length > 0 ? (
+              <>
+                {filteredItems.slice(0, 8).map((item) => (
+                  <SwipeableRow
+                    key={item.id}
+                    onSwipeRight={async () => await handleComplete(item.id)}
+                    onSwipeLeft={() => router.push(`/couldnt-do-it/${item.id}`)}
+                  >
+                    <TouchableOpacity
+                      style={[styles.taskItem, missed.includes(item) && styles.taskItemMissed]}
+                      onPress={() => router.push(`/responsibility/${item.id}`)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.taskCheckbox}>
+                        <View style={styles.checkCircle}>
+                          <TouchableOpacity
+                            style={styles.checkButton}
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              handleComplete(item.id);
+                            }}
+                          >
+                            <View style={styles.checkInner} />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                      <View style={styles.taskContent}>
+                        <Text style={styles.taskTitle} numberOfLines={2}>{item.title}</Text>
+                        <View style={styles.taskMeta}>
+                          <Text style={styles.taskTime}>
+                            {formatDateTime(item.schedule.datetime).split(' ')[1]}
+                          </Text>
+                          {item.category && (
+                            <>
+                              <Text style={styles.taskDot}>•</Text>
+                              <Text style={styles.taskCategory}>{item.category}</Text>
+                            </>
+                          )}
+                          {missed.includes(item) && (
+                            <>
+                              <Text style={styles.taskDot}>•</Text>
+                              <Text style={styles.taskMissed}>Missed</Text>
+                            </>
+                          )}
+                        </View>
+                      </View>
+                      {item.reminderStyle === 'critical' && (
+                        <View style={styles.criticalIndicator}>
+                          <Icon name="alertCircle" size={12} color={colors.status.error} />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  </SwipeableRow>
+                ))}
+                {filteredItems.length > 8 && (
+                  <TouchableOpacity
+                    style={styles.viewAllButton}
+                    onPress={() => router.push('/(tabs)/plan')}
+                  >
+                    <Text style={styles.viewAllText}>View all {filteredItems.length} tasks →</Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            ) : (
+              <View style={styles.emptySection}>
+                <Icon name="check" size={32} color={colors.text.tertiary} />
+                <Text style={styles.emptyText}>No tasks in this category</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Snoozed */}
+        {snoozed.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Snoozed</Text>
+            {snoozed.slice(0, 3).map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.taskItem}
+                onPress={() => router.push(`/responsibility/${item.id}`)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.taskCheckbox}>
+                  <Icon name="bell" size={16} color={colors.accent.primary} />
+                </View>
+                <View style={styles.taskContent}>
+                  <Text style={styles.taskTitle} numberOfLines={1}>{item.title}</Text>
+                  <Text style={styles.taskTime}>
+                    Until {item.snoozedUntil ? formatDateTime(item.snoozedUntil).split(' ')[1] : formatDateTime(item.schedule.datetime).split(' ')[1]}
+                  </Text>
+                </View>
+              </TouchableOpacity>
             ))}
           </View>
         )}
 
         {/* Empty State */}
-        {!nextCritical && upcoming.length === 0 && nowModeItems.length === 0 && (
+        {!nextCritical && missed.length === 0 && upcoming.length === 0 && nowModeItems.length === 0 && (
           <View style={styles.emptyState}>
-            <Icon name="check" size={64} color={colors.text.tertiary} />
+            <Icon name="check" size={48} color={colors.text.tertiary} />
             <Text style={styles.emptyTitle}>All clear</Text>
             <Text style={styles.emptyText}>
               You have no tasks scheduled today. Enjoy your free time!
@@ -304,7 +417,7 @@ const styles = StyleSheet.create({
   },
   greeting: {
     ...typography.h1,
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '700',
     color: colors.text.primary,
     marginBottom: spacing.xs,
@@ -318,12 +431,13 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   inputContainer: {
-    borderRadius: 16,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border.primary,
     backgroundColor: colors.background.secondary,
     marginBottom: spacing.sm,
     position: 'relative',
+    minHeight: 60,
   },
   inputContainerFocused: {
     borderColor: colors.accent.primary,
@@ -334,16 +448,17 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     padding: spacing.md,
     paddingRight: 50,
-    minHeight: 80,
     fontSize: 16,
+    minHeight: 60,
+    maxHeight: 100,
   },
   sendButton: {
     position: 'absolute',
     right: spacing.sm,
     bottom: spacing.sm,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: colors.accent.primary,
     justifyContent: 'center',
     alignItems: 'center',
@@ -360,10 +475,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.xs,
     paddingVertical: spacing.sm,
-    borderRadius: 12,
+    borderRadius: 10,
     backgroundColor: colors.background.secondary,
     borderWidth: 1,
     borderColor: colors.border.primary,
+    minHeight: 44,
   },
   actionButtonActive: {
     backgroundColor: colors.accent.primary,
@@ -380,45 +496,44 @@ const styles = StyleSheet.create({
   },
   heroCard: {
     backgroundColor: colors.background.secondary,
-    borderRadius: 20,
-    padding: spacing.lg,
+    borderRadius: 16,
+    padding: spacing.md,
     marginBottom: spacing.xl,
     borderWidth: 1,
     borderColor: colors.border.primary,
-    ...shadows.lg,
+    ...shadows.md,
   },
   heroHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   heroLabel: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: spacing.xs / 2,
   },
   heroLabelText: {
     ...typography.caption,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     color: colors.status.error,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   heroTitle: {
-    ...typography.h2,
-    fontSize: 22,
+    ...typography.h3,
+    fontSize: 18,
     fontWeight: '700',
     color: colors.text.primary,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.xs / 2,
   },
   heroDescription: {
-    ...typography.body,
-    fontSize: 15,
+    ...typography.bodySmall,
+    fontSize: 14,
     color: colors.text.secondary,
-    marginBottom: spacing.md,
-    lineHeight: 20,
+    marginBottom: spacing.sm,
   },
   heroFooter: {
     flexDirection: 'row',
@@ -427,14 +542,14 @@ const styles = StyleSheet.create({
   },
   heroTime: {
     ...typography.body,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: colors.text.tertiary,
   },
   heroArrow: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: colors.accent.primary + '20',
     justifyContent: 'center',
     alignItems: 'center',
@@ -442,44 +557,34 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: spacing.xl,
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
   sectionTitle: {
     ...typography.label,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: colors.text.secondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+    marginBottom: spacing.md,
   },
-  sectionLink: {
-    ...typography.body,
-    fontSize: 14,
-    color: colors.accent.primary,
-    fontWeight: '600',
-  },
-  horizontalScroll: {
-    marginHorizontal: -spacing.lg,
-    paddingHorizontal: spacing.lg,
+  quickGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
   quickCard: {
-    width: 160,
+    width: (SCREEN_WIDTH - spacing.lg * 2 - spacing.sm) / 2,
     backgroundColor: colors.background.secondary,
-    borderRadius: 16,
+    borderRadius: 12,
     padding: spacing.md,
-    marginRight: spacing.md,
     borderWidth: 1,
     borderColor: colors.border.primary,
     ...shadows.sm,
+    minHeight: 100,
   },
   quickCardIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: colors.accent.primary + '20',
     justifyContent: 'center',
     alignItems: 'center',
@@ -487,17 +592,61 @@ const styles = StyleSheet.create({
   },
   quickCardTitle: {
     ...typography.body,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
     color: colors.text.primary,
-    marginBottom: spacing.xs / 2,
+    lineHeight: 18,
   },
-  quickCardSubtitle: {
+  tabsHeader: {
+    marginBottom: spacing.md,
+  },
+  tabs: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+  },
+  tab: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: 20,
+    backgroundColor: colors.background.secondary,
+    borderWidth: 1,
+    borderColor: colors.border.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs / 2,
+    minHeight: 32,
+  },
+  tabActive: {
+    backgroundColor: colors.accent.primary,
+    borderColor: colors.accent.primary,
+  },
+  tabText: {
     ...typography.caption,
     fontSize: 12,
-    color: colors.text.tertiary,
+    fontWeight: '600',
+    color: colors.text.secondary,
   },
-  scheduleItem: {
+  tabTextActive: {
+    color: colors.text.primary,
+  },
+  tabBadge: {
+    backgroundColor: colors.background.primary,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    minWidth: 20,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tabBadgeText: {
+    ...typography.caption,
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.text.primary,
+  },
+  taskItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: spacing.md,
@@ -507,53 +656,103 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border.primary,
+    minHeight: 64,
   },
-  scheduleTime: {
-    width: 60,
+  taskItemMissed: {
+    borderLeftWidth: 3,
+    borderLeftColor: colors.status.error,
+  },
+  taskCheckbox: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: spacing.md,
   },
-  scheduleTimeText: {
-    ...typography.body,
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text.primary,
+  checkCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.border.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  scheduleContent: {
+  checkButton: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkInner: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  taskContent: {
     flex: 1,
   },
-  scheduleTitle: {
+  taskTitle: {
     ...typography.body,
     fontSize: 15,
     fontWeight: '600',
     color: colors.text.primary,
     marginBottom: spacing.xs / 2,
   },
-  scheduleCategory: {
+  taskMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs / 2,
+  },
+  taskTime: {
     ...typography.caption,
     fontSize: 12,
     color: colors.text.tertiary,
   },
-  scheduleCheck: {
+  taskDot: {
+    ...typography.caption,
+    fontSize: 12,
+    color: colors.text.tertiary,
+  },
+  taskCategory: {
+    ...typography.caption,
+    fontSize: 12,
+    color: colors.text.tertiary,
+  },
+  taskMissed: {
+    ...typography.caption,
+    fontSize: 12,
+    color: colors.status.error,
+    fontWeight: '600',
+  },
+  criticalIndicator: {
     width: 24,
     height: 24,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  checkCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    borderColor: colors.border.primary,
+  viewAllButton: {
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+  },
+  viewAllText: {
+    ...typography.body,
+    fontSize: 14,
+    color: colors.accent.primary,
+    fontWeight: '600',
+  },
+  emptySection: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
   },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.xxl * 2,
+    paddingVertical: spacing.xxl,
   },
   emptyTitle: {
-    ...typography.h2,
-    fontSize: 20,
+    ...typography.h3,
+    fontSize: 18,
     fontWeight: '700',
     color: colors.text.primary,
     marginTop: spacing.md,
@@ -561,7 +760,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     ...typography.body,
-    fontSize: 15,
+    fontSize: 14,
     color: colors.text.secondary,
     textAlign: 'center',
     maxWidth: 280,
