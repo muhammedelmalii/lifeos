@@ -24,80 +24,105 @@ export default function RootLayout() {
   const { isLoading } = useAuthStore();
 
   useEffect(() => {
-    // Initialize error tracking
-    errorTrackingService.initialize().catch(console.error);
-
-    // Initialize stores with timeout to prevent infinite loading
+    // Initialize stores - web-safe initialization
     const initStores = async () => {
       try {
-        // Set timeout to ensure we don't wait forever
-        const timeout = new Promise((resolve) => setTimeout(resolve, 5000));
-        
-        const initPromise = (async () => {
-          try {
-            await useSettingsStore.getState().loadSettings();
-            const settings = useSettingsStore.getState();
-            setI18nLanguage(settings.language);
-            
-            await useResponsibilitiesStore.getState().loadResponsibilities();
-            await useListsStore.getState().loadLists();
-            
-            // Check state transitions on startup
-            await useResponsibilitiesStore.getState().checkStateTransitions();
-          } catch (error) {
-            console.error('Failed to initialize stores:', error);
-          }
-        })();
-        
-        await Promise.race([initPromise, timeout]);
+        // Initialize error tracking (non-blocking)
+        errorTrackingService.initialize().catch(() => {
+          // Silently fail in production
+        });
+
+        // Initialize settings
+        try {
+          await useSettingsStore.getState().loadSettings();
+          const settings = useSettingsStore.getState();
+          setI18nLanguage(settings.language);
+        } catch (error) {
+          console.error('Failed to load settings:', error);
+        }
+
+        // Initialize responsibilities (non-blocking)
+        useResponsibilitiesStore.getState().loadResponsibilities().catch((error) => {
+          console.error('Failed to load responsibilities:', error);
+        });
+
+        // Initialize lists (non-blocking)
+        useListsStore.getState().loadLists().catch((error) => {
+          console.error('Failed to load lists:', error);
+        });
+
+        // Check state transitions (non-blocking)
+        useResponsibilitiesStore.getState().checkStateTransitions().catch(() => {
+          // Silently fail
+        });
       } catch (error) {
         console.error('Failed to initialize stores:', error);
       } finally {
-        setIsReady(true);
-        // Also ensure auth store is ready
-        const authStore = useAuthStore.getState();
-        if (authStore.isLoading) {
-          useAuthStore.setState({ isLoading: false });
-        }
+        // Always set ready after a short delay to allow stores to initialize
+        setTimeout(() => {
+          setIsReady(true);
+          // Force auth store to ready if still loading
+          const authStore = useAuthStore.getState();
+          if (authStore.isLoading) {
+            useAuthStore.setState({ isLoading: false });
+          }
+        }, 100);
       }
     };
     
     initStores();
 
-    // Periodic state transition check (every 5 minutes)
-    const interval = setInterval(() => {
-      useResponsibilitiesStore.getState().checkStateTransitions();
-    }, 5 * 60 * 1000);
+    // Background services - only start after app is ready
+    let interval: NodeJS.Timeout | null = null;
+    let proactiveInterval: NodeJS.Timeout | null = null;
+    let wellnessInterval: NodeJS.Timeout | null = null;
+    let predictiveInterval: NodeJS.Timeout | null = null;
 
-    // Start automation service (analysis every 30 minutes)
-    automationService.start(30);
+    const startBackgroundServices = () => {
+      // Periodic state transition check (every 5 minutes)
+      interval = setInterval(() => {
+        useResponsibilitiesStore.getState().checkStateTransitions().catch(() => {});
+      }, 5 * 60 * 1000);
 
-    // Start proactive help service (check every 15 minutes)
-    const proactiveInterval = setInterval(() => {
-      proactiveHelpService.getSuggestions().catch(console.error);
-    }, 15 * 60 * 1000);
+      // Start automation service (analysis every 30 minutes)
+      try {
+        automationService.start(30);
+      } catch (error) {
+        console.error('Failed to start automation service:', error);
+      }
 
-    // Wellness insights check (every hour)
-    const wellnessInterval = setInterval(() => {
-      wellnessInsightsService.getCriticalInsight().catch(console.error);
-    }, 60 * 60 * 1000);
+      // Start proactive help service (check every 15 minutes)
+      proactiveInterval = setInterval(() => {
+        proactiveHelpService.getSuggestions().catch(() => {});
+      }, 15 * 60 * 1000);
 
-    // Predictive actions check (every 6 hours)
-    const predictiveInterval = setInterval(() => {
-      predictiveActionsService.getPredictiveActions(7).catch(console.error);
-    }, 6 * 60 * 60 * 1000);
+      // Wellness insights check (every hour)
+      wellnessInterval = setInterval(() => {
+        wellnessInsightsService.getCriticalInsight().catch(() => {});
+      }, 60 * 60 * 1000);
 
-    // Initial checks
-    proactiveHelpService.getSuggestions().catch(console.error);
-    wellnessInsightsService.getCriticalInsight().catch(console.error);
-    predictiveActionsService.getPredictiveActions(7).catch(console.error);
+      // Predictive actions check (every 6 hours)
+      predictiveInterval = setInterval(() => {
+        predictiveActionsService.getPredictiveActions(7).catch(() => {});
+      }, 6 * 60 * 60 * 1000);
+    };
+
+    // Start background services after initialization
+    const initTimer = setTimeout(() => {
+      startBackgroundServices();
+    }, 1000);
 
     return () => {
-      clearInterval(interval);
-      clearInterval(proactiveInterval);
-      clearInterval(wellnessInterval);
-      clearInterval(predictiveInterval);
-      automationService.stop();
+      clearTimeout(initTimer);
+      if (interval) clearInterval(interval);
+      if (proactiveInterval) clearInterval(proactiveInterval);
+      if (wellnessInterval) clearInterval(wellnessInterval);
+      if (predictiveInterval) clearInterval(predictiveInterval);
+      try {
+        automationService.stop();
+      } catch (error) {
+        // Silently fail on cleanup
+      }
     };
   }, []);
 

@@ -144,36 +144,47 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 }));
 
 // Load user on init (async to avoid blocking)
-(async () => {
-  try {
-    // First check Supabase session if configured
-    if (isSupabaseConfigured()) {
-      await useAuthStore.getState().checkSession();
-    }
+// Web-safe initialization - only run in browser environment
+if (typeof window !== 'undefined') {
+  (async () => {
+    try {
+      // First check Supabase session if configured
+      if (isSupabaseConfigured()) {
+        try {
+          await useAuthStore.getState().checkSession();
+        } catch (error) {
+          // Silently fail if session check fails
+          console.warn('Session check failed:', error);
+        }
+      }
 
-    // Fallback to local storage
-    const stored = await AsyncStorage.getItem(STORAGE_KEY);
-    if (stored) {
+      // Fallback to local storage
       try {
-        const user = JSON.parse(stored);
-        // Only set if no user from Supabase session
-        if (!useAuthStore.getState().user) {
-          useAuthStore.getState().setUser(user);
+        const stored = await AsyncStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          try {
+            const user = JSON.parse(stored);
+            // Only set if no user from Supabase session
+            if (!useAuthStore.getState().user) {
+              useAuthStore.getState().setUser(user);
+            }
+          } catch (error) {
+            console.error('Failed to parse stored user:', error);
+          }
         }
       } catch (error) {
-        console.error('Failed to load user:', error);
+        // AsyncStorage might fail in some environments
+        console.warn('Failed to read from storage:', error);
       }
+    } catch (error) {
+      console.error('Failed to initialize auth store:', error);
+    } finally {
+      // Always set loading to false
+      useAuthStore.setState({ isLoading: false });
     }
-
-    // If still no user and Supabase not configured, use mock for development
-    if (!useAuthStore.getState().user && !isSupabaseConfigured()) {
-      // Uncomment for development with mock data
-      // useAuthStore.getState().setUser(mockUser);
-    }
-  } catch (error) {
-    console.error('Failed to read from storage:', error);
-  } finally {
-    useAuthStore.setState({ isLoading: false });
-  }
-})();
+  })();
+} else {
+  // SSR environment - just set loading to false
+  useAuthStore.setState({ isLoading: false });
+}
 
