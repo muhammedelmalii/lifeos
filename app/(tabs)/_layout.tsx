@@ -38,13 +38,6 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="briefing"
-        options={{
-          title: 'Briefing',
-          tabBarIcon: ({ color }) => <TabIcon name="briefing" color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="plan"
         options={{
           title: 'Plan',
@@ -75,7 +68,6 @@ function TabIcon({ name, color }: { name: string; color: string }) {
     home: '🏠',
     inbox: '📥',
     now: '⚡',
-    briefing: '📋',
     calendar: '📅',
     library: '📚',
     settings: '⚙️',

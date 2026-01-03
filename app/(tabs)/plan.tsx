@@ -5,7 +5,8 @@ import { useRouter } from 'expo-router';
 import { colors, spacing, typography, shadows } from '@/theme';
 import { Card, Badge, Icon } from '@/components/ui';
 import { useResponsibilitiesStore } from '@/store/responsibilities';
-import { formatDate, formatTime, isToday, isTomorrow, addDays, startOfDay, getHours, getMinutes } from 'date-fns';
+import { format, isToday, isTomorrow, addDays, startOfDay, getHours, getMinutes } from 'date-fns';
+import { formatDate, formatTime } from '@/utils/date';
 import { Responsibility } from '@/types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
