@@ -267,7 +267,7 @@ export const mockLists: List[] = [
 
 export const mockUser = {
   id: 'user-1',
-  email: 'alex@lifeos.app',
-  name: 'Alex',
+  email: 'mami@lifeos.app',
+  name: 'Mami',
 };
 
