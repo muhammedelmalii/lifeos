@@ -21,10 +21,58 @@ export const startVoiceRecognition = async (): Promise<{
 
   // MVP: Return mock implementation
   // In production, use a real speech-to-text service
+  // For web: Use Web Speech API if available
+  // For mobile: Integrate with native speech recognition (expo-speech-recognition or similar)
   let isListening = true;
   let transcript = '';
 
-  // Simulate listening
+  // Try to use Web Speech API if available (for web platform)
+  if (typeof window !== 'undefined' && 'webkitSpeechRecognition' in window) {
+    const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    return new Promise((resolve, reject) => {
+      recognition.onstart = () => {
+        isListening = true;
+      };
+
+      recognition.onresult = (event: any) => {
+        transcript = event.results[0][0].transcript;
+      };
+
+      recognition.onerror = (event: any) => {
+        isListening = false;
+        reject(new Error(`Speech recognition error: ${event.error}`));
+      };
+
+      recognition.onend = () => {
+        isListening = false;
+      };
+
+      const stop = async (): Promise<VoiceResult> => {
+        recognition.stop();
+        isListening = false;
+        
+        return {
+          text: transcript || 'Remind me to call the dentist tomorrow at 2 PM',
+          confidence: transcript ? 0.9 : 0.5,
+        };
+      };
+
+      try {
+        recognition.start();
+        resolve({ stop, isListening: true });
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  // Fallback: Mock implementation for mobile or when Web Speech API is not available
+  // Simulate listening with a delay to make it feel more real
   const stop = async (): Promise<VoiceResult> => {
     isListening = false;
     
@@ -32,11 +80,11 @@ export const startVoiceRecognition = async (): Promise<{
     // For now, return a placeholder that the user can edit
     return {
       text: transcript || 'Remind me to call the dentist tomorrow at 2 PM',
-      confidence: 0.95,
+      confidence: transcript ? 0.95 : 0.5,
     };
   };
 
-  return { stop, isListening };
+  return { stop, isListening: true };
 };
 
 // Text-to-speech helper

@@ -94,20 +94,28 @@ A premium mobile app for managing responsibilities (not tasks) with AI-powered a
 
 ## 📦 Deployment
 
-### Web (Vercel)
+### Web (Vercel) - Önerilen
 
-1. Push to GitHub
-2. Connect to Vercel
-3. Add environment variables
-4. Deploy automatically
+1. **GitHub'a push et** (zaten yapıldı ✅)
+2. **Vercel'e bağla:**
+   - https://vercel.com/new → GitHub repo seç
+   - Import → Deploy
+3. **Environment variables ekle:**
+   - `EXPO_PUBLIC_SUPABASE_URL`
+   - `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+   - `EXPO_PUBLIC_OPENAI_API_KEY`
+4. **Deploy otomatik başlar**
 
-See `vercel.json` for configuration.
+Detaylar için `DEPLOY.md` dosyasına bak.
 
 ### Mobile (EAS Build)
 
 1. Install EAS CLI: `npm install -g eas-cli`
 2. Login: `eas login`
-3. Build: `eas build --platform android --profile preview`
+3. Development build: `npm run build:android`
+4. Preview build: `npm run build:android:preview`
+
+Detaylar için `MOBIL_TEST_REHBERI.md` dosyasına bak.
 
 ## 📄 Legal
 

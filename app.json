@@ -38,7 +38,10 @@
         "android.permission.WRITE_CALENDAR"
       ]
     },
-    "web": {},
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
     "plugins": [
       "expo-router",
       [

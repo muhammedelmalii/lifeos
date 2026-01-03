@@ -163,7 +163,13 @@ export const AIUnderstandingSheet: React.FC<AIUnderstandingSheetProps> = ({
   );
 };
 
-const { height } = Dimensions.get('window');
+const getWindowHeight = () => {
+  try {
+    return Dimensions.get('window').height;
+  } catch {
+    return 800; // Fallback height
+  }
+};
 
 const styles = StyleSheet.create({
   overlay: {
@@ -175,7 +181,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background.primary,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: height * 0.9,
+    maxHeight: getWindowHeight() * 0.9,
     paddingBottom: spacing.xl,
   },
   header: {

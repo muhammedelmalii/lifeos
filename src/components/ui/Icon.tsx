@@ -47,6 +47,7 @@ const iconMap: Record<string, string> = {
   edit: '✏️',
   delete: '🗑️',
   share: '📤',
+  alertCircle: '⚠️',
 };
 
 export const Icon: React.FC<IconProps> = ({ 

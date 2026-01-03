@@ -39,8 +39,17 @@ export class ErrorBoundary extends Component<Props, State> {
     // Log error to error tracking service (Sentry, etc.)
     console.error('ErrorBoundary caught an error:', error, errorInfo);
     
-    // TODO: Send to error tracking service
-    // errorTrackingService.captureException(error, { extra: errorInfo });
+    // Send to error tracking service
+    try {
+      const { errorTrackingService } = require('@/services/errorTracking');
+      errorTrackingService.captureException(error, { 
+        metadata: { 
+          componentStack: errorInfo.componentStack,
+        } 
+      });
+    } catch (trackingError) {
+      console.error('Failed to send error to tracking service:', trackingError);
+    }
   }
 
   handleReset = () => {
