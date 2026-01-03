@@ -17,7 +17,7 @@
 
 ```bash
 # .env dosyasında olmalı
-EXPO_PUBLIC_OPENAI_API_KEY=sk-proj-...
+EXPO_PUBLIC_OPENAI_API_KEY=your-openai-api-key-here
 ```
 
 ## Kullanım

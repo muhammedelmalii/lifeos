@@ -9,11 +9,12 @@ node_modules/
 .env.*.local
 
 # Build outputs
-dist/
+# dist/  # Keep dist for Vercel deployment
 build/
 *.apk
 *.ipa
 *.aab
+web-build/
 
 # OS files
 .DS_Store
