@@ -17,7 +17,10 @@ Kod GitHub'da: `https://github.com/muhammedelmalii/lifeos.git`
 - Build Command: `npm run build:web`
 - Output Directory: `dist`
 - Framework: Other
-- Node.js Version: `18.x` (Vercel Settings → General → Node.js Version)
+
+**ÖNEMLİ:** Node.js Version'ı Vercel Settings'ten ayarlayın:
+- Vercel Dashboard → Settings → General → Node.js Version → `18.x` seçin
+- Bu ayar `vercel.json`'da değil, Vercel Settings'te yapılmalı!
 
 ### 3. Environment Variables Ekle
 
