@@ -11,9 +11,16 @@ export default function TabsLayout() {
           backgroundColor: colors.background.secondary,
           borderTopColor: colors.border.primary,
           borderTopWidth: 1,
+          height: 60,
+          paddingBottom: 8,
+          paddingTop: 8,
         },
         tabBarActiveTintColor: colors.accent.primary,
         tabBarInactiveTintColor: colors.text.tertiary,
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '600',
+        },
       }}
     >
       <Tabs.Screen
@@ -31,24 +38,10 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="now"
-        options={{
-          title: 'Now',
-          tabBarIcon: ({ color }) => <TabIcon name="now" color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="plan"
         options={{
           title: 'Plan',
           tabBarIcon: ({ color }) => <TabIcon name="calendar" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="library"
-        options={{
-          title: 'Library',
-          tabBarIcon: ({ color }) => <TabIcon name="library" color={color} />,
         }}
       />
       <Tabs.Screen
@@ -63,15 +56,11 @@ export default function TabsLayout() {
 }
 
 function TabIcon({ name, color }: { name: string; color: string }) {
-  // Simple text-based icons for MVP
   const icons: Record<string, string> = {
     home: '🏠',
     inbox: '📥',
-    now: '⚡',
     calendar: '📅',
-    library: '📚',
     settings: '⚙️',
   };
   return <Text style={{ fontSize: 24 }}>{icons[name] || '•'}</Text>;
 }
-

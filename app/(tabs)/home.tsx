@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors, spacing, typography, shadows } from '@/theme';
-import { Button, Card, Chip, Icon, Badge } from '@/components/ui';
+import { Button, Card, Icon, Badge } from '@/components/ui';
 import { useResponsibilitiesStore } from '@/store/responsibilities';
 import { useAuthStore } from '@/store';
-import { useSettingsStore } from '@/store/settings';
-import { parseCommand, parseCommandWithAI } from '@/services/aiParser';
+import { parseCommandWithAI } from '@/services/aiParser';
 import { startVoiceRecognition } from '@/services/voice';
 import { pickImage, extractTextFromImage } from '@/services/ocr';
 import { formatDateTime, getRelativeTime } from '@/utils/date';
 import { AIUnderstandingSheet } from '@/components/AIUnderstandingSheet';
 import { SwipeableRow } from '@/components/SwipeableRow';
-import { ProactiveSuggestions } from '@/components/ProactiveSuggestions';
 import { t } from '@/i18n';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -23,23 +23,32 @@ export default function HomeScreen() {
   const [showAISheet, setShowAISheet] = useState(false);
   const [parsedCommand, setParsedCommand] = useState<any>(null);
   const [isInputFocused, setIsInputFocused] = useState(false);
-  const { getNextCritical, loadResponsibilities, getUpcoming, updateResponsibility } = useResponsibilitiesStore();
+  
+  const { 
+    getNextCritical, 
+    loadResponsibilities, 
+    getUpcoming, 
+    getNowMode,
+    updateResponsibility,
+    checkStateTransitions 
+  } = useResponsibilitiesStore();
+  
   const user = useAuthStore((state) => state.user);
   const nextCritical = getNextCritical();
-  const upcoming = getUpcoming();
+  const upcoming = getUpcoming().slice(0, 5);
+  const nowModeItems = getNowMode().slice(0, 3);
   
-  // Calculate energy and tasks
-  const energyPercent = 85;
-  const tasksLeft = upcoming.length;
+  // Stats
+  const todayUpcoming = getUpcoming();
+  const tasksLeft = todayUpcoming.length;
 
   useEffect(() => {
     loadResponsibilities();
+    checkStateTransitions();
   }, []);
 
   const handleTextSubmit = async () => {
     if (!inputText.trim()) return;
-
-    // Use AI parsing if available, fallback to rule-based
     const parsed = await parseCommandWithAI(inputText, 'text');
     setParsedCommand(parsed);
     setShowAISheet(true);
@@ -65,7 +74,6 @@ export default function HomeScreen() {
   const handlePhotoPress = async () => {
     const uri = await pickImage();
     if (!uri) return;
-
     const ocrResult = await extractTextFromImage(uri);
     setInputText(ocrResult.text);
     
@@ -74,44 +82,45 @@ export default function HomeScreen() {
     setShowAISheet(true);
   };
 
+  const handleComplete = async (id: string) => {
+    await updateResponsibility(id, { status: 'completed', completedAt: new Date() });
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-        contentInsetAdjustmentBehavior="automatic"
       >
-        {/* Header Section */}
+        {/* Modern Header */}
         <View style={styles.header}>
-          <Text style={styles.greeting}>
-            {t('home.goodMorning', { name: user?.name || 'Alex' })}
-          </Text>
-          <View style={styles.statusRow}>
-            <Text style={styles.statusText}>{t('home.active')}</Text>
-            <Chip
-              label={t('home.energy', { percent: energyPercent })}
-              variant="energy_medium"
-              style={styles.chip}
-            />
-            <Chip
-              label={t('home.tasksLeft', { count: tasksLeft })}
-              variant="default"
-              style={styles.chip}
-            />
+          <View>
+            <Text style={styles.greeting}>
+              {new Date().getHours() < 12 
+                ? 'Good morning' 
+                : new Date().getHours() < 18 
+                ? 'Good afternoon' 
+                : 'Good evening'}
+              {user?.name ? `, ${user.name.split(' ')[0]}` : ''}
+            </Text>
+            <Text style={styles.subtitle}>
+              {tasksLeft > 0 
+                ? `${tasksLeft} ${tasksLeft === 1 ? 'task' : 'tasks'} today`
+                : 'All clear today'}
+            </Text>
           </View>
         </View>
 
-        {/* Input Section */}
+        {/* Compact Input Section */}
         <View style={styles.inputSection}>
           <View style={[
             styles.inputContainer,
             isInputFocused && styles.inputContainerFocused,
-            inputText.trim().length > 0 && styles.inputContainerHasText
           ]}>
             <TextInput
               style={styles.input}
-              placeholder={t('home.inputPlaceholder')}
+              placeholder="Add a task or note..."
               placeholderTextColor={colors.text.tertiary}
               value={inputText}
               onChangeText={setInputText}
@@ -128,166 +137,142 @@ export default function HomeScreen() {
                 onPress={handleTextSubmit}
                 activeOpacity={0.7}
               >
-                <Icon name="send" size={20} color={colors.accent.primary} />
+                <Icon name="send" size={20} color={colors.text.primary} />
               </TouchableOpacity>
             )}
           </View>
           
-          {/* Send Button - Prominent when text exists */}
-          {inputText.trim().length > 0 && (
+          {/* Quick Actions */}
+          <View style={styles.quickActions}>
             <TouchableOpacity
-              style={styles.sendButtonLarge}
-              onPress={handleTextSubmit}
-              activeOpacity={0.8}
-            >
-              <View style={styles.sendButtonLargeContent}>
-                <Text style={styles.sendButtonLargeText}>{t('home.send')}</Text>
-                <Icon name="send" size={20} color={colors.text.primary} />
-              </View>
-            </TouchableOpacity>
-          )}
-
-          {/* Input Mode Buttons */}
-          <View style={styles.inputButtons}>
-            <TouchableOpacity 
-              style={[
-                styles.inputButton,
-                isInputFocused && styles.inputButtonFocused,
-                inputText.trim().length === 0 && styles.inputButtonInactive
-              ]}
-              onPress={() => {
-                if (inputText.trim().length > 0) {
-                  handleTextSubmit();
-                }
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={[
-                styles.inputButtonText,
-                inputText.trim().length > 0 && styles.inputButtonTextActive
-              ]}>
-                {t('home.type')}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.inputButton,
-                isListening && styles.inputButtonActive,
-                !isInputFocused && inputText.trim().length === 0 && styles.inputButtonInactive
-              ]}
+              style={[styles.actionButton, isListening && styles.actionButtonActive]}
               onPress={handleVoicePress}
               activeOpacity={0.7}
             >
-              <Text style={[
-                styles.inputButtonText,
-                isListening && styles.inputButtonTextActive
-              ]}>
-                {t('home.voice')}
-              </Text>
+              <Icon name="microphone" size={18} color={isListening ? colors.text.primary : colors.text.secondary} />
+              <Text style={[styles.actionText, isListening && styles.actionTextActive]}>Voice</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={[
-                styles.inputButton,
-                !isInputFocused && inputText.trim().length === 0 && styles.inputButtonInactive
-              ]}
+            <TouchableOpacity
+              style={styles.actionButton}
               onPress={handlePhotoPress}
               activeOpacity={0.7}
             >
-              <Text style={styles.inputButtonText}>{t('home.scan')}</Text>
+              <Icon name="camera" size={18} color={colors.text.secondary} />
+              <Text style={styles.actionText}>Scan</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Next Critical Responsibility */}
+        {/* Next Critical - Hero Card */}
         {nextCritical && (
-          <View style={styles.nextSection}>
-            <Text style={styles.sectionTitle}>{t('home.nextCritical')}</Text>
-            <Card style={styles.responsibilityCard}>
-              {nextCritical.schedule.datetime <= new Date() && (
-                <View style={styles.responsibilityImageContainer}>
-                  <View style={styles.responsibilityImage} />
-                  <View style={styles.imageOverlay}>
-                    <Text style={styles.imageOverlayText}>
-                      Now until {formatDateTime(
-                        new Date(nextCritical.schedule.datetime.getTime() + 2.5 * 60 * 60 * 1000)
-                      ).split(' ')[1] || '11:30 AM'}
-                    </Text>
-                  </View>
-                </View>
-              )}
-              {nextCritical.schedule.datetime > new Date() && (
-                <View style={styles.timeBadge}>
-                  <Badge 
-                    label={getRelativeTime(nextCritical.schedule.datetime)} 
-                    variant="accent"
-                  />
-                </View>
-              )}
-              <Text style={styles.responsibilityTitle}>{nextCritical.title}</Text>
-              {nextCritical.description && (
-                <Text style={styles.responsibilityDescription}>{nextCritical.description}</Text>
-              )}
-              <View style={styles.responsibilityFooter}>
-                <View style={styles.responsibilityAvatar}>
-                  <Text style={styles.avatarText}>
-                    {(user?.name || 'A')
-                      .split(' ')
-                      .map((n) => n[0])
-                      .join('')
-                      .toUpperCase()}
-                  </Text>
-                </View>
-                <Button
-                  title={t('home.startFocus')}
-                  onPress={() => router.push(`/responsibility/${nextCritical.id}`)}
-                  size="medium"
-                  style={styles.startButton}
-                  variant="primary"
-                />
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => router.push(`/responsibility/${nextCritical.id}`)}
+            style={styles.heroCard}
+          >
+            <View style={styles.heroHeader}>
+              <View style={styles.heroLabel}>
+                <Icon name="alertCircle" size={14} color={colors.status.error} />
+                <Text style={styles.heroLabelText}>Next Critical</Text>
               </View>
-            </Card>
+              <Badge 
+                label={getRelativeTime(nextCritical.schedule.datetime)} 
+                variant="accent"
+              />
+            </View>
+            <Text style={styles.heroTitle} numberOfLines={2}>{nextCritical.title}</Text>
+            {nextCritical.description && (
+              <Text style={styles.heroDescription} numberOfLines={2}>
+                {nextCritical.description}
+              </Text>
+            )}
+            <View style={styles.heroFooter}>
+              <Text style={styles.heroTime}>
+                {formatDateTime(nextCritical.schedule.datetime).split(' ')[1]}
+              </Text>
+              <View style={styles.heroArrow}>
+                <Icon name="arrowRight" size={20} color={colors.accent.primary} />
+              </View>
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {/* Now Mode - Quick Actions */}
+        {nowModeItems.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Quick Actions</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
+              {nowModeItems.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.quickCard}
+                  onPress={() => router.push(`/responsibility/${item.id}`)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.quickCardIcon}>
+                    <Icon name="check" size={20} color={colors.accent.primary} />
+                  </View>
+                  <Text style={styles.quickCardTitle} numberOfLines={2}>{item.title}</Text>
+                  <Text style={styles.quickCardSubtitle}>Low energy</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
         )}
 
-        {/* Today at a Glance */}
-        <View style={styles.glanceSection}>
-          <Text style={styles.sectionTitle}>{t('home.todayGlance')}</Text>
-          {upcoming.slice(0, 5).map((item, index) => (
-            <SwipeableRow
-              key={item.id}
-              onSwipeRight={async () => {
-                await updateResponsibility(item.id, { status: 'completed', completedAt: new Date() });
-              }}
-              onSwipeLeft={() => {
-                router.push(`/couldnt-do-it/${item.id}`);
-              }}
-            >
-              <TouchableOpacity
-                style={styles.glanceItem}
-                onPress={() => router.push(`/responsibility/${item.id}`)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.glanceTimeContainer}>
-                  <View style={[styles.glanceDot, index === 0 && styles.glanceDotActive]} />
-                  <Text style={styles.glanceTime}>
-                    {formatDateTime(item.schedule.datetime).split(' ')[1] || '09:00'}
-                  </Text>
-                </View>
-                <View style={styles.glanceContent}>
-                  <Text style={styles.glanceTitle}>{item.title}</Text>
-                  <Text style={styles.glanceSubtitle}>
-                    {item.description || item.category || 'Scheduled'}
-                  </Text>
-                </View>
+        {/* Today's Schedule */}
+        {upcoming.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Today</Text>
+              <TouchableOpacity onPress={() => router.push('/(tabs)/plan')}>
+                <Text style={styles.sectionLink}>View all</Text>
               </TouchableOpacity>
-            </SwipeableRow>
-          ))}
-          {upcoming.length === 0 && (
-            <View style={styles.emptyGlance}>
-              <Text style={styles.emptyGlanceText}>Yaklaşan sorumluluk yok. Rahat bir gün.</Text>
             </View>
-          )}
-        </View>
+            {upcoming.map((item) => (
+              <SwipeableRow
+                key={item.id}
+                onSwipeRight={async () => await handleComplete(item.id)}
+                onSwipeLeft={() => router.push(`/couldnt-do-it/${item.id}`)}
+              >
+                <TouchableOpacity
+                  style={styles.scheduleItem}
+                  onPress={() => router.push(`/responsibility/${item.id}`)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.scheduleTime}>
+                    <Text style={styles.scheduleTimeText}>
+                      {formatDateTime(item.schedule.datetime).split(' ')[1] || '09:00'}
+                    </Text>
+                  </View>
+                  <View style={styles.scheduleContent}>
+                    <Text style={styles.scheduleTitle} numberOfLines={1}>{item.title}</Text>
+                    {item.category && (
+                      <Text style={styles.scheduleCategory}>{item.category}</Text>
+                    )}
+                  </View>
+                  <TouchableOpacity
+                    style={styles.scheduleCheck}
+                    onPress={() => handleComplete(item.id)}
+                  >
+                    <View style={styles.checkCircle} />
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              </SwipeableRow>
+            ))}
+          </View>
+        )}
+
+        {/* Empty State */}
+        {!nextCritical && upcoming.length === 0 && nowModeItems.length === 0 && (
+          <View style={styles.emptyState}>
+            <Icon name="check" size={64} color={colors.text.tertiary} />
+            <Text style={styles.emptyTitle}>All clear</Text>
+            <Text style={styles.emptyText}>
+              You have no tasks scheduled today. Enjoy your free time!
+            </Text>
+          </View>
+        )}
       </ScrollView>
 
       {showAISheet && parsedCommand && (
@@ -298,9 +283,6 @@ export default function HomeScreen() {
           originalText={inputText}
         />
       )}
-
-      {/* Proactive Suggestions */}
-      <ProactiveSuggestions />
     </SafeAreaView>
   );
 }
@@ -315,57 +297,45 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
-    paddingBottom: spacing.xxl * 2, // Extra space at bottom for tab bar
+    paddingBottom: 100,
   },
   header: {
     marginBottom: spacing.xl,
   },
   greeting: {
     ...typography.h1,
+    fontSize: 32,
+    fontWeight: '700',
     color: colors.text.primary,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  statusText: {
-    ...typography.label,
-    color: colors.accent.primary,
-    marginRight: spacing.sm,
-  },
-  chip: {
-    marginRight: spacing.xs,
+  subtitle: {
+    ...typography.body,
+    fontSize: 15,
+    color: colors.text.secondary,
   },
   inputSection: {
     marginBottom: spacing.xl,
   },
   inputContainer: {
-    position: 'relative',
-    marginBottom: spacing.md,
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border.primary,
     backgroundColor: colors.background.secondary,
+    marginBottom: spacing.sm,
+    position: 'relative',
   },
   inputContainerFocused: {
     borderColor: colors.accent.primary,
     borderWidth: 2,
-    backgroundColor: colors.background.tertiary,
-  },
-  inputContainerHasText: {
-    borderColor: colors.accent.primary,
   },
   input: {
     ...typography.body,
     color: colors.text.primary,
-    backgroundColor: 'transparent',
-    borderRadius: 12,
     padding: spacing.md,
-    paddingRight: 50, // Space for send button
-    minHeight: 100,
+    paddingRight: 50,
+    minHeight: 80,
+    fontSize: 16,
   },
   sendButton: {
     position: 'absolute',
@@ -377,194 +347,223 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    ...shadows.accent,
+    ...shadows.sm,
   },
-  sendButtonLarge: {
-    marginBottom: spacing.md,
-    width: '100%',
-    backgroundColor: colors.accent.primary,
-    borderRadius: 12,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    ...shadows.accentLg,
+  quickActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
   },
-  sendButtonLargeContent: {
+  actionButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.sm,
-  },
-  sendButtonLargeText: {
-    ...typography.body,
-    color: colors.text.primary,
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  inputButtons: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  inputButton: {
-    flex: 1,
-    backgroundColor: colors.background.tertiary,
-    borderRadius: 20,
+    gap: spacing.xs,
     paddingVertical: spacing.sm,
-    alignItems: 'center',
-    opacity: 1,
-  },
-  inputButtonInactive: {
-    opacity: 0.5,
-  },
-  inputButtonFocused: {
-    backgroundColor: colors.background.secondary,
-    borderWidth: 1,
-    borderColor: colors.border.primary,
-  },
-  inputButtonActive: {
-    backgroundColor: colors.accent.primary,
-  },
-  inputButtonText: {
-    ...typography.caption,
-    color: colors.text.primary,
-    fontWeight: '600',
-    fontSize: 12,
-  },
-  inputButtonTextActive: {
-    color: colors.text.primary,
-  },
-  nextSection: {
-    marginBottom: spacing.xl,
-    marginTop: spacing.lg,
-  },
-  sectionTitle: {
-    ...typography.label,
-    color: colors.text.secondary,
-    marginBottom: spacing.sm,
-    textTransform: 'uppercase',
-  },
-  responsibilityCard: {
-    padding: spacing.lg,
-    backgroundColor: colors.background.secondary,
-    borderWidth: 1,
-    borderColor: colors.border.primary,
-    borderRadius: 16,
-    ...shadows.md,
-  },
-  responsibilityImageContainer: {
-    width: '100%',
-    height: 140,
     borderRadius: 12,
-    marginBottom: spacing.md,
-    overflow: 'hidden',
-    position: 'relative',
+    backgroundColor: colors.background.secondary,
+    borderWidth: 1,
+    borderColor: colors.border.primary,
   },
-  responsibilityImage: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: colors.background.tertiary,
+  actionButtonActive: {
+    backgroundColor: colors.accent.primary,
+    borderColor: colors.accent.primary,
   },
-  imageOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    padding: spacing.sm,
-  },
-  imageOverlayText: {
+  actionText: {
     ...typography.caption,
-    color: colors.text.primary,
+    fontSize: 13,
+    color: colors.text.secondary,
     fontWeight: '600',
   },
-  timeBadge: {
+  actionTextActive: {
+    color: colors.text.primary,
+  },
+  heroCard: {
+    backgroundColor: colors.background.secondary,
+    borderRadius: 20,
+    padding: spacing.lg,
+    marginBottom: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.border.primary,
+    ...shadows.lg,
+  },
+  heroHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: spacing.md,
   },
-  responsibilityDescription: {
-    ...typography.bodySmall,
-    color: colors.text.secondary,
-    marginBottom: spacing.md,
-    marginTop: spacing.xs,
+  heroLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
-  responsibilityTitle: {
+  heroLabelText: {
+    ...typography.caption,
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.status.error,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  heroTitle: {
     ...typography.h2,
+    fontSize: 22,
+    fontWeight: '700',
     color: colors.text.primary,
     marginBottom: spacing.xs,
   },
-  responsibilityTime: {
-    ...typography.bodySmall,
+  heroDescription: {
+    ...typography.body,
+    fontSize: 15,
     color: colors.text.secondary,
     marginBottom: spacing.md,
+    lineHeight: 20,
   },
-  responsibilityFooter: {
+  heroFooter: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  responsibilityAvatar: {
+  heroTime: {
+    ...typography.body,
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text.tertiary,
+  },
+  heroArrow: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: colors.accent.primary,
+    backgroundColor: colors.accent.primary + '20',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  avatarText: {
-    ...typography.caption,
-    color: colors.text.primary,
+  section: {
+    marginBottom: spacing.xl,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  sectionTitle: {
+    ...typography.label,
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text.secondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  sectionLink: {
+    ...typography.body,
+    fontSize: 14,
+    color: colors.accent.primary,
     fontWeight: '600',
   },
-  startButton: {
-    flex: 1,
-    marginLeft: spacing.md,
+  horizontalScroll: {
+    marginHorizontal: -spacing.lg,
+    paddingHorizontal: spacing.lg,
   },
-  glanceSection: {
-    marginBottom: spacing.xxl,
-    marginTop: spacing.lg,
+  quickCard: {
+    width: 160,
+    backgroundColor: colors.background.secondary,
+    borderRadius: 16,
+    padding: spacing.md,
+    marginRight: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border.primary,
+    ...shadows.sm,
   },
-  glanceItem: {
-    flexDirection: 'row',
-    marginBottom: spacing.lg,
-    alignItems: 'flex-start',
-    paddingVertical: spacing.xs,
-  },
-  glanceTimeContainer: {
-    flexDirection: 'row',
+  quickCardIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.accent.primary + '20',
+    justifyContent: 'center',
     alignItems: 'center',
-    width: 80,
+    marginBottom: spacing.sm,
   },
-  glanceDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.background.tertiary,
-    marginRight: spacing.sm,
-  },
-  glanceDotActive: {
-    backgroundColor: colors.accent.primary,
-  },
-  glanceTime: {
-    ...typography.bodySmall,
-    color: colors.text.tertiary,
-  },
-  glanceContent: {
-    flex: 1,
-  },
-  glanceTitle: {
+  quickCardTitle: {
     ...typography.body,
+    fontSize: 15,
+    fontWeight: '600',
     color: colors.text.primary,
     marginBottom: spacing.xs / 2,
   },
-  glanceSubtitle: {
-    ...typography.bodySmall,
+  quickCardSubtitle: {
+    ...typography.caption,
+    fontSize: 12,
     color: colors.text.tertiary,
   },
-  emptyGlance: {
-    paddingVertical: spacing.xl,
+  scheduleItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.background.secondary,
+    borderRadius: 12,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border.primary,
+  },
+  scheduleTime: {
+    width: 60,
+    marginRight: spacing.md,
+  },
+  scheduleTimeText: {
+    ...typography.body,
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+  scheduleContent: {
+    flex: 1,
+  },
+  scheduleTitle: {
+    ...typography.body,
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.xs / 2,
+  },
+  scheduleCategory: {
+    ...typography.caption,
+    fontSize: 12,
+    color: colors.text.tertiary,
+  },
+  scheduleCheck: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  emptyGlanceText: {
+  checkCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: colors.border.primary,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.xxl * 2,
+  },
+  emptyTitle: {
+    ...typography.h2,
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text.primary,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  emptyText: {
     ...typography.body,
-    color: colors.text.tertiary,
+    fontSize: 15,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    maxWidth: 280,
   },
 });
-
