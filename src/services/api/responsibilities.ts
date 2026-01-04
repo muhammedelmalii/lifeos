@@ -13,6 +13,7 @@ export interface CreateResponsibilityInput {
   escalationRules?: EscalationRule[];
   checklist?: ChecklistItem[];
   createdFrom?: 'text' | 'voice' | 'photo';
+  calendarEventId?: string;
 }
 
 export interface UpdateResponsibilityInput extends Partial<CreateResponsibilityInput> {
@@ -20,6 +21,7 @@ export interface UpdateResponsibilityInput extends Partial<CreateResponsibilityI
   completedAt?: Date;
   snoozedUntil?: Date;
   reminderStyle?: 'gentle' | 'persistent' | 'critical';
+  calendarEventId?: string;
 }
 
 class ResponsibilitiesAPI {
@@ -80,6 +82,7 @@ class ResponsibilitiesAPI {
         escalation_rules: input.escalationRules,
         checklist: input.checklist,
         created_from: input.createdFrom || 'text',
+        calendar_event_id: input.calendarEventId,
         status: 'active',
       })
       .select()
@@ -112,6 +115,7 @@ class ResponsibilitiesAPI {
     if (input.checklist !== undefined) updateData.checklist = input.checklist;
     if (input.completedAt !== undefined) updateData.completed_at = input.completedAt.toISOString();
     if (input.snoozedUntil !== undefined) updateData.snoozed_until = input.snoozedUntil.toISOString();
+    if (input.calendarEventId !== undefined) updateData.calendar_event_id = input.calendarEventId;
     if (input.schedule) {
       updateData.schedule_type = input.schedule.type;
       updateData.schedule_datetime = input.schedule.datetime.toISOString();
@@ -168,6 +172,7 @@ class ResponsibilitiesAPI {
       checklist: row.checklist || [],
       status: row.status,
       createdFrom: row.created_from || 'text',
+      calendarEventId: row.calendar_event_id,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
       completedAt: row.completed_at ? new Date(row.completed_at) : undefined,

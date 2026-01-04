@@ -6,6 +6,7 @@ import { responsibilitiesAPI, CreateResponsibilityInput, UpdateResponsibilityInp
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { useAuthStore } from './auth';
 import { eventSystem } from '@/services/events';
+import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from '@/services/calendar';
 
 interface ResponsibilitiesState {
   responsibilities: Responsibility[];
@@ -102,6 +103,7 @@ export const useResponsibilitiesStore = create<ResponsibilitiesState>((set, get)
           escalationRules: responsibility.escalationRules,
           checklist: responsibility.checklist,
           createdFrom: responsibility.createdFrom,
+          calendarEventId: responsibility.calendarEventId,
         };
         const apiResponsibility = await responsibilitiesAPI.create(input, user.id);
         // Update with API response (includes server-generated fields)
@@ -136,6 +138,37 @@ export const useResponsibilitiesStore = create<ResponsibilitiesState>((set, get)
     
     const updated = responsibilities.find(r => r.id === id)!;
     
+    // Update calendar event if schedule changed or if we need to create one
+    if (updates.schedule || (!previous.calendarEventId && updated.schedule)) {
+      try {
+        if (previous.calendarEventId) {
+          // Update existing calendar event (delete old, create new)
+          const newEventId = await updateCalendarEvent(previous.calendarEventId, updated);
+          if (newEventId) {
+            updated.calendarEventId = newEventId;
+            // Update in responsibilities array
+            const withCalendarId = responsibilities.map((r) =>
+              r.id === id ? { ...r, calendarEventId: newEventId } : r
+            );
+            set({ responsibilities: withCalendarId });
+          }
+        } else if (updated.schedule) {
+          // Create new calendar event
+          const eventId = await createCalendarEvent(updated);
+          if (eventId) {
+            updated.calendarEventId = eventId;
+            const withCalendarId = responsibilities.map((r) =>
+              r.id === id ? { ...r, calendarEventId: eventId } : r
+            );
+            set({ responsibilities: withCalendarId });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to update calendar event:', error);
+        // Continue without calendar event
+      }
+    }
+    
     // Save to local storage immediately
     try {
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(responsibilities));
@@ -158,6 +191,7 @@ export const useResponsibilitiesStore = create<ResponsibilitiesState>((set, get)
           completedAt: updates.completedAt,
           snoozedUntil: updates.snoozedUntil,
           schedule: updates.schedule,
+          calendarEventId: updated.calendarEventId,
         };
         const apiResponsibility = await responsibilitiesAPI.update(id, input, user.id);
         // Update with API response
@@ -205,6 +239,18 @@ export const useResponsibilitiesStore = create<ResponsibilitiesState>((set, get)
   },
 
   deleteResponsibility: async (id: string) => {
+    const responsibility = get().responsibilities.find(r => r.id === id);
+    
+    // Delete calendar event if exists
+    if (responsibility?.calendarEventId) {
+      try {
+        await deleteCalendarEvent(responsibility.calendarEventId);
+      } catch (error) {
+        console.error('Failed to delete calendar event:', error);
+        // Continue with deletion even if calendar event deletion fails
+      }
+    }
+    
     const responsibilities = get().responsibilities.filter((r) => r.id !== id);
     set({ responsibilities });
     

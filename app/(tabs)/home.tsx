@@ -11,7 +11,9 @@ import { startVoiceRecognition } from '@/services/voice';
 import { pickImage, extractTextFromImage } from '@/services/ocr';
 import { formatDateTime, getRelativeTime } from '@/utils/date';
 import { AIUnderstandingSheet } from '@/components/AIUnderstandingSheet';
+import { ProactiveSuggestions } from '@/components/ProactiveSuggestions';
 import { SwipeableRow } from '@/components/SwipeableRow';
+import { wellnessInsightsService } from '@/services/wellnessInsights';
 import { t } from '@/i18n';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -22,8 +24,14 @@ export default function HomeScreen() {
   const [isListening, setIsListening] = useState(false);
   const [showAISheet, setShowAISheet] = useState(false);
   const [parsedCommand, setParsedCommand] = useState<any>(null);
+  const [originalText, setOriginalText] = useState('');
+  const [createdFrom, setCreatedFrom] = useState<'text' | 'voice' | 'photo'>('text');
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'missed' | 'upcoming'>('all');
+  const [wellnessInsight, setWellnessInsight] = useState<any>(null);
+  const [showProactiveSuggestions, setShowProactiveSuggestions] = useState(true);
+  const [wellnessInsight, setWellnessInsight] = useState<any>(null);
+  const [showProactiveSuggestions, setShowProactiveSuggestions] = useState(true);
   
   const { 
     getNextCritical, 
@@ -61,14 +69,25 @@ export default function HomeScreen() {
   useEffect(() => {
     loadResponsibilities();
     checkStateTransitions();
+    
+    // Load wellness insight
+    wellnessInsightsService.getCriticalInsight().then(setWellnessInsight).catch(() => {});
   }, []);
 
   const handleTextSubmit = async () => {
     if (!inputText.trim()) return;
-    const parsed = await parseCommandWithAI(inputText, 'text');
-    setParsedCommand(parsed);
-    setShowAISheet(true);
-    setInputText('');
+    const text = inputText.trim();
+    try {
+      const parsed = await parseCommandWithAI(text, 'text');
+      setParsedCommand(parsed);
+      setOriginalText(text);
+      setCreatedFrom('text');
+      setShowAISheet(true);
+      setInputText('');
+    } catch (error) {
+      console.error('Failed to parse command:', error);
+      // Show error to user (could add toast/alert here)
+    }
   };
 
   const handleVoicePress = async () => {
@@ -76,12 +95,21 @@ export default function HomeScreen() {
       setIsListening(true);
       const { stop } = await startVoiceRecognition();
       const result = await stop();
-      setInputText(result.text);
+      const text = result.text;
+      setInputText(text);
       setIsListening(false);
       
-      const parsed = await parseCommandWithAI(result.text, 'voice');
-      setParsedCommand(parsed);
-      setShowAISheet(true);
+      if (text.trim()) {
+        try {
+          const parsed = await parseCommandWithAI(text, 'voice');
+          setParsedCommand(parsed);
+          setOriginalText(text);
+          setCreatedFrom('voice');
+          setShowAISheet(true);
+        } catch (error) {
+          console.error('Failed to parse voice command:', error);
+        }
+      }
     } catch (error) {
       console.error('Voice recognition error:', error);
       setIsListening(false);
@@ -89,14 +117,27 @@ export default function HomeScreen() {
   };
 
   const handlePhotoPress = async () => {
-    const uri = await pickImage();
-    if (!uri) return;
-    const ocrResult = await extractTextFromImage(uri);
-    setInputText(ocrResult.text);
-    
-    const parsed = await parseCommandWithAI(ocrResult.text, 'photo');
-    setParsedCommand(parsed);
-    setShowAISheet(true);
+    try {
+      const uri = await pickImage();
+      if (!uri) return;
+      const ocrResult = await extractTextFromImage(uri);
+      const text = ocrResult.text;
+      setInputText(text);
+      
+      if (text.trim()) {
+        try {
+          const parsed = await parseCommandWithAI(text, 'photo');
+          setParsedCommand(parsed);
+          setOriginalText(text);
+          setCreatedFrom('photo');
+          setShowAISheet(true);
+        } catch (error) {
+          console.error('Failed to parse photo text:', error);
+        }
+      }
+    } catch (error) {
+      console.error('Photo picker error:', error);
+    }
   };
 
   const handleComplete = async (id: string) => {
@@ -212,6 +253,46 @@ export default function HomeScreen() {
               </View>
             </View>
           </TouchableOpacity>
+        )}
+
+        {/* Wellness Insight */}
+        {wellnessInsight && (
+          <View style={styles.section}>
+            <Card style={[
+              styles.wellnessCard,
+              wellnessInsight.severity === 'critical' && styles.wellnessCardCritical,
+              wellnessInsight.severity === 'warning' && styles.wellnessCardWarning,
+            ]}>
+              <View style={styles.wellnessHeader}>
+                <Icon 
+                  name={wellnessInsight.type === 'stress' ? 'alertCircle' : 'star'} 
+                  size={20} 
+                  color={
+                    wellnessInsight.severity === 'critical' 
+                      ? colors.status.error 
+                      : wellnessInsight.severity === 'warning'
+                      ? colors.status.warning
+                      : colors.accent.primary
+                  } 
+                />
+                <Text style={styles.wellnessTitle}>{wellnessInsight.title}</Text>
+              </View>
+              <Text style={styles.wellnessMessage}>{wellnessInsight.message}</Text>
+              {wellnessInsight.suggestion && (
+                <Text style={styles.wellnessSuggestion}>💡 {wellnessInsight.suggestion}</Text>
+              )}
+            </Card>
+          </View>
+        )}
+
+        {/* Proactive Suggestions */}
+        {showProactiveSuggestions && (
+          <View style={styles.section}>
+            <ProactiveSuggestions 
+              visible={showProactiveSuggestions}
+              onDismiss={() => setShowProactiveSuggestions(false)}
+            />
+          </View>
         )}
 
         {/* Quick Actions Grid */}
@@ -393,7 +474,8 @@ export default function HomeScreen() {
           visible={showAISheet}
           onClose={() => setShowAISheet(false)}
           parsedCommand={parsedCommand}
-          originalText={inputText}
+          originalText={originalText}
+          createdFrom={createdFrom}
         />
       )}
     </SafeAreaView>
@@ -764,5 +846,47 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     textAlign: 'center',
     maxWidth: 280,
+  },
+  wellnessCard: {
+    padding: spacing.md,
+    backgroundColor: colors.background.secondary,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.accent.primary,
+    borderRadius: 12,
+    ...shadows.sm,
+  },
+  wellnessCardCritical: {
+    borderLeftColor: colors.status.error,
+    backgroundColor: colors.status.error + '10',
+  },
+  wellnessCardWarning: {
+    borderLeftColor: colors.status.warning,
+    backgroundColor: colors.status.warning + '10',
+  },
+  wellnessHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  wellnessTitle: {
+    ...typography.h3,
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text.primary,
+  },
+  wellnessMessage: {
+    ...typography.body,
+    fontSize: 14,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+    lineHeight: 20,
+  },
+  wellnessSuggestion: {
+    ...typography.bodySmall,
+    fontSize: 13,
+    color: colors.accent.primary,
+    fontStyle: 'italic',
+    marginTop: spacing.xs,
   },
 });

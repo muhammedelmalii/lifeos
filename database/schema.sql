@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS responsibilities (
   checklist JSONB DEFAULT '[]'::jsonb,
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed', 'missed', 'snoozed', 'archived')),
   created_from TEXT DEFAULT 'text' CHECK (created_from IN ('text', 'voice', 'photo')),
+  calendar_event_id TEXT,
   completed_at TIMESTAMPTZ,
   snoozed_until TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

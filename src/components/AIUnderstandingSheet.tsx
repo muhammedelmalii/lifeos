@@ -12,8 +12,11 @@ import { colors, spacing, typography, shadows } from '@/theme';
 import { Button, Card, Chip, Icon } from '@/components/ui';
 import { ParsedCommand } from '@/services/aiParser';
 import { useResponsibilitiesStore } from '@/store/responsibilities';
+import { useListsStore } from '@/store/lists';
+import { List } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import { scheduleResponsibilityNotifications } from '@/services/notifications';
+import { createCalendarEvent } from '@/services/calendar';
 import { formatDateTime } from '@/utils/date';
 import { t } from '@/i18n';
 
@@ -22,6 +25,7 @@ interface AIUnderstandingSheetProps {
   onClose: () => void;
   parsedCommand: ParsedCommand;
   originalText: string;
+  createdFrom: 'text' | 'voice' | 'photo';
 }
 
 export const AIUnderstandingSheet: React.FC<AIUnderstandingSheetProps> = ({
@@ -29,10 +33,13 @@ export const AIUnderstandingSheet: React.FC<AIUnderstandingSheetProps> = ({
   onClose,
   parsedCommand,
   originalText,
+  createdFrom,
 }) => {
   const { addResponsibility } = useResponsibilitiesStore();
+  const { updateList, loadLists } = useListsStore();
 
   const handleConfirm = async () => {
+    // 1. Create the responsibility
     const responsibility = {
       id: uuidv4(),
       title: parsedCommand.title,
@@ -49,13 +56,73 @@ export const AIUnderstandingSheet: React.FC<AIUnderstandingSheetProps> = ({
       ],
       status: 'active' as const,
       checklist: [],
-      createdFrom: 'text' as const,
+      createdFrom: createdFrom,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
 
+    // 2. Create calendar event if schedule exists
+    let calendarEventId: string | null = null;
+    if (responsibility.schedule && responsibility.schedule.datetime) {
+      try {
+        calendarEventId = await createCalendarEvent(responsibility);
+        if (calendarEventId) {
+          responsibility.calendarEventId = calendarEventId;
+        }
+      } catch (error) {
+        console.error('Failed to create calendar event:', error);
+        // Continue without calendar event
+      }
+    }
+
+    // 3. Add responsibility (with calendar event ID if created)
     await addResponsibility(responsibility);
     await scheduleResponsibilityNotifications(responsibility);
+
+    // 2. Process list actions if any
+    if (parsedCommand.listActions && parsedCommand.listActions.length > 0) {
+      // Ensure lists are loaded
+      await loadLists();
+      
+      for (const listAction of parsedCommand.listActions) {
+        // Find existing list by name (case-insensitive)
+        const existingList = useListsStore.getState().lists.find(
+          l => l.name.toLowerCase() === listAction.listName.toLowerCase()
+        );
+
+        if (existingList) {
+          // Add items to existing list
+          const newItems = listAction.items.map(item => ({
+            id: uuidv4(),
+            label: item,
+            category: '',
+            checked: false,
+            createdAt: new Date(),
+          }));
+
+          const updatedItems = [...existingList.items, ...newItems];
+          await updateList(existingList.id, { items: updatedItems });
+        } else {
+          // Create new list if it doesn't exist
+          const newList: List = {
+            id: uuidv4(),
+            name: listAction.listName,
+            type: 'custom',
+            items: listAction.items.map(item => ({
+              id: uuidv4(),
+              label: item,
+              category: '',
+              checked: false,
+              createdAt: new Date(),
+            })),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+          await useListsStore.getState().addList(newList);
+        }
+      }
+    }
+
     onClose();
   };
 

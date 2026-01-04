@@ -42,6 +42,7 @@ export interface Responsibility {
   checklist: ChecklistItem[];
   createdFrom: CreatedFrom;
   metadata?: ResponsibilityMetadata;
+  calendarEventId?: string;
   createdAt: Date;
   updatedAt: Date;
   completedAt?: Date;

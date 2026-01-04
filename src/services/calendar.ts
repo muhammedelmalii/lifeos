@@ -54,6 +54,23 @@ export const createCalendarEvent = async (
   }
 };
 
+export const updateCalendarEvent = async (
+  eventId: string,
+  responsibility: Responsibility
+): Promise<string | null> => {
+  try {
+    // Note: expo-calendar doesn't have a direct update method
+    // So we delete the old event and create a new one
+    await deleteCalendarEvent(eventId);
+    
+    // Recreate with new data
+    return await createCalendarEvent(responsibility);
+  } catch (error) {
+    console.error('Failed to update calendar event:', error);
+    return null;
+  }
+};
+
 export const deleteCalendarEvent = async (eventId: string): Promise<void> => {
   try {
     await Calendar.deleteEventAsync(eventId);

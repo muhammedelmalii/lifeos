@@ -160,6 +160,31 @@ export default function SettingsScreen() {
           </Card>
         </View>
 
+        {/* AI Features Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>AI Features</Text>
+          <Card style={styles.settingCard}>
+            <View style={styles.settingRow}>
+              <View style={styles.settingLeft}>
+                <Text style={styles.settingLabel}>Proactive Suggestions</Text>
+                <Text style={styles.settingDescription}>Get helpful suggestions automatically</Text>
+              </View>
+              <View style={styles.settingRight}>
+                <Text style={styles.settingValue}>Enabled</Text>
+              </View>
+            </View>
+            <View style={[styles.settingRow, { marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border.primary }]}>
+              <View style={styles.settingLeft}>
+                <Text style={styles.settingLabel}>Wellness Insights</Text>
+                <Text style={styles.settingDescription}>Monitor work-life balance</Text>
+              </View>
+              <View style={styles.settingRight}>
+                <Text style={styles.settingValue}>Enabled</Text>
+              </View>
+            </View>
+          </Card>
+        </View>
+
         {/* Language Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Language</Text>
