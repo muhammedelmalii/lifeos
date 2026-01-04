@@ -2,7 +2,7 @@ import { Responsibility, EnergyLevel, ReminderStyle, Schedule, CreatedFrom } fro
 import { addDays, addHours, setHours, setMinutes, startOfDay } from 'date-fns';
 
 export interface ParsedCommand {
-  title: string;
+  title?: string; // Optional - can be empty for list-only commands
   description?: string;
   category?: string;
   schedule?: Schedule;
@@ -15,6 +15,9 @@ export interface ParsedCommand {
   queryType?: 'list' | 'show' | 'filter';
   queryCategory?: string;
   queryListName?: string;
+  // Auto-execution flags
+  autoExecute?: boolean; // If true, execute directly without showing confirmation sheet
+  actionType?: 'create' | 'list' | 'query' | 'update' | 'delete'; // Type of action to perform
 }
 
 // Rule-based parser for MVP
@@ -207,7 +210,7 @@ export const parseCommandWithAI = async (
         messages: [
           {
             role: 'system',
-            content: `You are an AI assistant that parses natural language commands into structured responsibility data.
+            content: `You are a personal AI assistant that understands natural language commands and executes them automatically.
 Parse the user's command and return a JSON object with:
 - title: Main task/responsibility title (ONLY if it's a task/responsibility, not a simple shopping item)
 - description: Optional detailed description
@@ -221,14 +224,36 @@ Parse the user's command and return a JSON object with:
 - queryCategory: Category to filter by (if querying by category)
 - queryListName: List name to query (if querying a specific list)
 - listActions: Optional array of {listName, items[]}. CRITICAL: For simple shopping commands like "ekmek al", "buy bread", "süt al", ONLY create listActions, DO NOT create a responsibility (set title to empty string or null).
+- autoExecute: true for simple commands that should be executed immediately without confirmation (shopping lists, simple queries, etc.)
+- actionType: 'create' | 'list' | 'query' | 'update' | 'delete' - The type of action to perform
 
-IMPORTANT RULES:
-1. Simple shopping items (e.g., "ekmek al", "buy bread", "süt al", "milk al") → ONLY listActions, NO responsibility (title: null or empty)
-2. Shopping with schedule (e.g., "tomorrow buy bread") → BOTH listActions AND responsibility
-3. Multiple items (e.g., "ekmek, süt, yumurta al") → Extract all items into listActions
-4. Shopping items → listName: "Shopping List" or "Market List" or "Grocery List" (use "Shopping List" as default)
-5. Turkish commands: "ekmek al", "süt al", "ekmek, süt al" → listActions only
-6. English commands: "buy bread", "get milk", "buy bread, milk, eggs" → listActions only
+IMPORTANT RULES - ACT AS A PERSONAL ASSISTANT:
+1. Simple shopping items (e.g., "ekmek al", "buy bread", "süt al", "milk al") → 
+   - autoExecute: true
+   - actionType: 'list'
+   - ONLY listActions, NO responsibility (title: null or empty)
+   - Execute immediately without asking
+
+2. Shopping with schedule (e.g., "tomorrow buy bread") → 
+   - autoExecute: false (needs confirmation for schedule)
+   - actionType: 'create'
+   - BOTH listActions AND responsibility
+
+3. Multiple items (e.g., "ekmek, süt, yumurta al") → 
+   - autoExecute: true
+   - Extract all items into listActions
+   - Execute immediately
+
+4. Query commands (e.g., "show shopping list", "bugünkü işleri göster") → 
+   - autoExecute: true
+   - actionType: 'query'
+   - Execute immediately
+
+5. Simple task creation (e.g., "call John tomorrow") → 
+   - autoExecute: false (needs confirmation)
+   - actionType: 'create'
+
+6. Shopping items → listName: "Shopping List" or "Market List" or "Grocery List" (use "Shopping List" as default)
 
 Be smart about:
 - Understanding context and intent
@@ -236,14 +261,14 @@ Be smart about:
 - Detecting urgency and importance
 - Identifying recurring patterns
 - Understanding energy requirements from context
-- Simple shopping: "ekmek al" → title: null, listActions: [{listName: "Shopping List", items: ["ekmek"]}]
-- Simple shopping: "buy milk, bread" → title: null, listActions: [{listName: "Shopping List", items: ["milk", "bread"]}]
-- Scheduled shopping: "tomorrow buy bread" → title: "Buy bread", schedule: tomorrow, listActions: [{listName: "Shopping List", items: ["bread"]}]
+- Simple shopping: "ekmek al" → autoExecute: true, actionType: 'list', title: null, listActions: [{listName: "Shopping List", items: ["ekmek"]}]
+- Simple shopping: "buy milk, bread" → autoExecute: true, actionType: 'list', title: null, listActions: [{listName: "Shopping List", items: ["milk", "bread"]}]
+- Scheduled shopping: "tomorrow buy bread" → autoExecute: false, actionType: 'create', title: "Buy bread", schedule: tomorrow, listActions: [{listName: "Shopping List", items: ["bread"]}]
+- Query: "show shopping list" → autoExecute: true, actionType: 'query', isQuery: true, queryType: 'list', queryListName: "Shopping List"
+- Query: "bugünkü işleri göster" → autoExecute: true, actionType: 'query', isQuery: true, queryType: 'show'
 - Auto-categorizing: "meeting with John" → category: 'work' or 'social' based on context
 - Auto-categorizing: "doctor appointment" → category: 'health'
 - Understanding Turkish and English commands
-- Query detection: "show shopping list" → isQuery: true, queryType: 'list', queryListName: "Shopping List"
-- Query detection: "market listesini göster" → isQuery: true, queryType: 'list', queryListName: "Market List"
 
 Return ONLY valid JSON, no markdown formatting.`,
           },

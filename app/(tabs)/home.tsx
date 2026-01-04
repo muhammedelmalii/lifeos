@@ -88,22 +88,38 @@ export default function HomeScreen() {
     try {
       const parsed = await parseCommandWithAI(text, 'text');
       
-      // Check if this is a query command
+      // GPT decided this should auto-execute - act as personal assistant
+      if (parsed.autoExecute) {
+        // Query commands
+        if (parsed.isQuery || parsed.actionType === 'query') {
+          await handleQueryCommand(parsed, text);
+          setInputText('');
+          return;
+        }
+        
+        // List actions (shopping, etc.)
+        if (parsed.actionType === 'list' || (parsed.listActions && parsed.listActions.length > 0 && (!parsed.title || parsed.title.trim() === ''))) {
+          await handleListOnlyCommand(parsed);
+          setInputText('');
+          return;
+        }
+      }
+      
+      // Check if this is a query command (fallback)
       if (parsed.isQuery) {
         await handleQueryCommand(parsed, text);
         setInputText('');
         return;
       }
       
-      // Check if this is a simple list action (no title = just add to list)
+      // Check if this is a simple list action (fallback)
       if (parsed.listActions && parsed.listActions.length > 0 && (!parsed.title || parsed.title.trim() === '')) {
-        // Directly add to list without showing sheet
         await handleListOnlyCommand(parsed);
         setInputText('');
         return;
       }
       
-      // Normal command - create responsibility
+      // Normal command - needs confirmation
       setParsedCommand(parsed);
       setOriginalText(text);
       setCreatedFrom('text');
@@ -245,19 +261,31 @@ export default function HomeScreen() {
         try {
           const parsed = await parseCommandWithAI(text, 'photo');
           
-          // Check if this is a query command
+          // GPT decided this should auto-execute
+          if (parsed.autoExecute) {
+            if (parsed.isQuery || parsed.actionType === 'query') {
+              await handleQueryCommand(parsed, text);
+              return;
+            }
+            if (parsed.actionType === 'list' || (parsed.listActions && parsed.listActions.length > 0 && (!parsed.title || parsed.title.trim() === ''))) {
+              await handleListOnlyCommand(parsed);
+              return;
+            }
+          }
+          
+          // Check if this is a query command (fallback)
           if (parsed.isQuery) {
             await handleQueryCommand(parsed, text);
             return;
           }
           
-          // Check if this is a simple list action (no title = just add to list)
+          // Check if this is a simple list action (fallback)
           if (parsed.listActions && parsed.listActions.length > 0 && (!parsed.title || parsed.title.trim() === '')) {
             await handleListOnlyCommand(parsed);
             return;
           }
           
-          // Normal command - create responsibility
+          // Normal command - needs confirmation
           setParsedCommand(parsed);
           setOriginalText(text);
           setCreatedFrom('photo');
