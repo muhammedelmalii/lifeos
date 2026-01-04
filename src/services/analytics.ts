@@ -52,8 +52,12 @@ class AnalyticsService {
     
     const todayTasks = responsibilities.filter(r => {
       if (!r.schedule?.datetime) return false;
-      const taskDate = r.schedule.datetime;
-      return taskDate >= today && taskDate < tomorrow;
+      try {
+        const taskDate = r.schedule.datetime;
+        return taskDate >= today && taskDate < tomorrow;
+      } catch {
+        return false;
+      }
     });
     
     const completed = todayTasks.filter(r => r.status === 'completed').length;
@@ -82,8 +86,12 @@ class AnalyticsService {
     
     const weekTasks = responsibilities.filter(r => {
       if (!r.schedule?.datetime) return false;
-      const taskDate = r.schedule.datetime;
-      return taskDate >= weekStart && taskDate < weekEnd;
+      try {
+        const taskDate = r.schedule.datetime;
+        return taskDate >= weekStart && taskDate < weekEnd;
+      } catch {
+        return false;
+      }
     });
     
     const completed = weekTasks.filter(r => r.status === 'completed' && r.completedAt);
