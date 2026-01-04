@@ -308,16 +308,19 @@ class SmartAutomationService {
    */
   async checkConflicts(): Promise<SmartSuggestion[]> {
     const allResponsibilities = useResponsibilitiesStore.getState().responsibilities;
-    const active = allResponsibilities.filter(r => r.status === 'active');
+    const active = allResponsibilities.filter(r => r.status === 'active' && r.schedule?.datetime);
     
     const conflicts: Array<{ first: Responsibility; second: Responsibility }> = [];
-    const sorted = [...active].sort((a, b) => 
-      a.schedule.datetime.getTime() - b.schedule.datetime.getTime()
-    );
+    const sorted = [...active].sort((a, b) => {
+      if (!a.schedule?.datetime || !b.schedule?.datetime) return 0;
+      return a.schedule.datetime.getTime() - b.schedule.datetime.getTime();
+    });
 
     for (let i = 0; i < sorted.length - 1; i++) {
       const current = sorted[i];
       const next = sorted[i + 1];
+      
+      if (!current.schedule?.datetime || !next.schedule?.datetime) continue;
       
       const currentEnd = new Date(current.schedule.datetime.getTime() + 60 * 60 * 1000);
       if (next.schedule.datetime < currentEnd) {

@@ -285,10 +285,14 @@ export const useResponsibilitiesStore = create<ResponsibilitiesState>((set, get)
       .responsibilities.filter(
         (r) =>
           r.status === 'active' &&
+          r.schedule?.datetime &&
           r.schedule.datetime > now &&
           !r.snoozedUntil
       )
-      .sort((a, b) => a.schedule.datetime.getTime() - b.schedule.datetime.getTime());
+      .sort((a, b) => {
+        if (!a.schedule?.datetime || !b.schedule?.datetime) return 0;
+        return a.schedule.datetime.getTime() - b.schedule.datetime.getTime();
+      });
   },
 
   getMissed: () => {
@@ -297,9 +301,14 @@ export const useResponsibilitiesStore = create<ResponsibilitiesState>((set, get)
       .responsibilities.filter(
         (r) =>
           r.status === 'missed' ||
-          (r.status === 'active' && r.schedule.datetime < now && !r.completedAt)
+          (r.status === 'active' && r.schedule?.datetime && r.schedule.datetime < now && !r.completedAt)
       )
-      .sort((a, b) => b.schedule.datetime.getTime() - a.schedule.datetime.getTime());
+      .sort((a, b) => {
+        const aDate = a.schedule?.datetime;
+        const bDate = b.schedule?.datetime;
+        if (!aDate || !bDate) return 0;
+        return bDate.getTime() - aDate.getTime();
+      });
   },
 
   getSnoozed: () => {
@@ -309,8 +318,9 @@ export const useResponsibilitiesStore = create<ResponsibilitiesState>((set, get)
         (r) => r.status === 'snoozed' || (r.snoozedUntil && r.snoozedUntil > now)
       )
       .sort((a, b) => {
-        const aDate = a.snoozedUntil || a.schedule.datetime;
-        const bDate = b.snoozedUntil || b.schedule.datetime;
+        const aDate = a.snoozedUntil || a.schedule?.datetime;
+        const bDate = b.snoozedUntil || b.schedule?.datetime;
+        if (!aDate || !bDate) return 0;
         return aDate.getTime() - bDate.getTime();
       });
   },
@@ -321,11 +331,15 @@ export const useResponsibilitiesStore = create<ResponsibilitiesState>((set, get)
       .responsibilities.filter(
         (r) =>
           r.status === 'active' &&
+          r.schedule?.datetime &&
           r.schedule.datetime <= now &&
           !r.completedAt &&
           !r.snoozedUntil
       )
-      .sort((a, b) => a.schedule.datetime.getTime() - b.schedule.datetime.getTime());
+      .sort((a, b) => {
+        if (!a.schedule?.datetime || !b.schedule?.datetime) return 0;
+        return a.schedule.datetime.getTime() - b.schedule.datetime.getTime();
+      });
   },
 
   getNextCritical: () => {
@@ -400,9 +414,12 @@ export const useResponsibilitiesStore = create<ResponsibilitiesState>((set, get)
   getByCategory: (category: string) => {
     return get()
       .responsibilities.filter(
-        (r) => r.category?.toLowerCase() === category.toLowerCase() && r.status === 'active'
+        (r) => r.category?.toLowerCase() === category.toLowerCase() && r.status === 'active' && r.schedule?.datetime
       )
-      .sort((a, b) => a.schedule.datetime.getTime() - b.schedule.datetime.getTime());
+      .sort((a, b) => {
+        if (!a.schedule?.datetime || !b.schedule?.datetime) return 0;
+        return a.schedule.datetime.getTime() - b.schedule.datetime.getTime();
+      });
   },
 
   getCategories: () => {
@@ -426,10 +443,14 @@ export const useResponsibilitiesStore = create<ResponsibilitiesState>((set, get)
         (r) =>
           (!category || r.category?.toLowerCase() === category.toLowerCase()) &&
           r.status === 'active' &&
+          r.schedule?.datetime &&
           r.schedule.datetime >= today &&
           r.schedule.datetime < tomorrow
       )
-      .sort((a, b) => a.schedule.datetime.getTime() - b.schedule.datetime.getTime());
+      .sort((a, b) => {
+        if (!a.schedule?.datetime || !b.schedule?.datetime) return 0;
+        return a.schedule.datetime.getTime() - b.schedule.datetime.getTime();
+      });
   },
 }));
 
