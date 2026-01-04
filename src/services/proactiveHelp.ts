@@ -66,20 +66,27 @@ class ProactiveHelpService {
 
     const criticalUpcoming = responsibilities.filter(r => 
       r.status === 'active' &&
+      r.schedule?.datetime &&
       r.reminderStyle === 'critical' &&
       isAfter(r.schedule.datetime, now) &&
       isBefore(r.schedule.datetime, next24Hours)
     );
 
     for (const task of criticalUpcoming) {
+      if (!task.schedule?.datetime) continue;
       const hoursUntil = (task.schedule.datetime.getTime() - now.getTime()) / (1000 * 60 * 60);
       
       // Remind 2 hours before
       if (hoursUntil <= 2 && hoursUntil > 1.5) {
+        const minutesUntil = Math.round(hoursUntil * 60);
+        const timeText = minutesUntil < 60 
+          ? `${minutesUntil} dakika` 
+          : `${Math.round(hoursUntil)} saat`;
+        
         actions.push({
           type: 'prepare',
           title: 'Hazırlık Zamanı',
-          message: `"${task.title}" için 2 saat kaldı. Hazırlık yapmak ister misin?`,
+          message: `"${task.title}" için ${timeText} kaldı. Hazırlık yapmak ister misin?`,
           priority: 'high',
           autoExecute: false,
           action: async () => {
@@ -89,14 +96,17 @@ class ProactiveHelpService {
         });
       }
 
-      // Remind 30 minutes before
-      if (hoursUntil <= 0.5 && hoursUntil > 0.25) {
+      // Remind 30 minutes before (or if less than 30 min)
+      if (hoursUntil <= 0.5 && hoursUntil > 0) {
+        const minutesUntil = Math.round(hoursUntil * 60);
+        const timeText = minutesUntil === 0 ? '0 dakika' : `${minutesUntil} dakika`;
+        
         actions.push({
           type: 'reminder',
-          title: 'Yaklaşıyor',
-          message: `"${task.title}" için 30 dakika kaldı.`,
+          title: minutesUntil === 0 ? 'Size Yardımcı Olabilirim' : 'Yaklaşıyor',
+          message: `"${task.title}" için ${timeText} kaldı. ${minutesUntil === 0 ? 'Hazırlanmak ister misin?' : ''}`,
           priority: 'high',
-          autoExecute: true, // Auto-send notification
+          autoExecute: minutesUntil === 0, // Auto-send notification if 0 minutes
           action: async () => {
             await smartNotificationsService.sendContextualReminder(task);
           },
@@ -119,6 +129,7 @@ class ProactiveHelpService {
 
     const todayTasks = responsibilities.filter(r =>
       r.status === 'active' &&
+      r.schedule?.datetime &&
       isAfter(r.schedule.datetime, today) &&
       isBefore(r.schedule.datetime, tomorrow)
     );
@@ -126,12 +137,14 @@ class ProactiveHelpService {
     // If more than 6 tasks today, suggest breaks
     if (todayTasks.length > 6) {
       // Check for back-to-back tasks
-      const sorted = [...todayTasks].sort((a, b) =>
-        a.schedule.datetime.getTime() - b.schedule.datetime.getTime()
-      );
+      const sorted = [...todayTasks].sort((a, b) => {
+        if (!a.schedule?.datetime || !b.schedule?.datetime) return 0;
+        return a.schedule.datetime.getTime() - b.schedule.datetime.getTime();
+      });
 
       let hasBackToBack = false;
       for (let i = 0; i < sorted.length - 1; i++) {
+        if (!sorted[i].schedule?.datetime || !sorted[i + 1].schedule?.datetime) continue;
         const gap = sorted[i + 1].schedule.datetime.getTime() - sorted[i].schedule.datetime.getTime();
         if (gap < 30 * 60 * 1000) { // Less than 30 minutes
           hasBackToBack = true;
@@ -164,6 +177,7 @@ class ProactiveHelpService {
 
     const recentMissed = responsibilities.filter(r =>
       r.status === 'missed' &&
+      r.schedule?.datetime &&
       isAfter(r.schedule.datetime, yesterday) &&
       isBefore(r.schedule.datetime, now)
     );
@@ -196,6 +210,7 @@ class ProactiveHelpService {
 
     const mismatched = responsibilities.filter(r => {
       if (r.status !== 'active') return false;
+      if (!r.schedule?.datetime) return false;
       if (!isAfter(r.schedule.datetime, now)) return false;
       if (!isBefore(r.schedule.datetime, addDays(now, 1))) return false;
       
@@ -242,6 +257,7 @@ class ProactiveHelpService {
 
     const tomorrowTasks = responsibilities.filter(r =>
       r.status === 'active' &&
+      r.schedule?.datetime &&
       isAfter(r.schedule.datetime, tomorrow) &&
       isBefore(r.schedule.datetime, dayAfter)
     );
@@ -292,6 +308,7 @@ class ProactiveHelpService {
     const nextTasks = responsibilities
       .filter(r =>
         r.status === 'active' &&
+        r.schedule?.datetime &&
         isAfter(r.schedule.datetime, now) &&
         isBefore(r.schedule.datetime, addHours(now, 3))
       )
