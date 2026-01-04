@@ -17,6 +17,7 @@ import { ProactiveSuggestions } from '@/components/ProactiveSuggestions';
 import { SwipeableRow } from '@/components/SwipeableRow';
 import { wellnessInsightsService } from '@/services/wellnessInsights';
 import { t } from '@/i18n';
+import { v4 as uuidv4 } from 'uuid';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
