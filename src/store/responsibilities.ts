@@ -359,6 +359,7 @@ export const useResponsibilitiesStore = create<ResponsibilitiesState>((set, get)
       // active → missed: time passed, not completed
       if (
         r.status === 'active' &&
+        r.schedule?.datetime &&
         r.schedule.datetime < now &&
         !r.completedAt &&
         !r.snoozedUntil
