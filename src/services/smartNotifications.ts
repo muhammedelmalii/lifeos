@@ -4,6 +4,7 @@
  */
 
 import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
 import { Responsibility } from '@/types';
 import { contextAwarenessService } from './contextAwareness';
 import { useSettingsStore } from '@/store/settings';
@@ -22,6 +23,12 @@ class SmartNotificationsService {
    * Considers user context and preferences
    */
   async scheduleSmartNotification(notification: SmartNotification): Promise<string> {
+    // Notifications are not available on web
+    if (Platform.OS === 'web') {
+      console.log('Notifications not available on web platform');
+      return '';
+    }
+
     const context = await contextAwarenessService.getContext();
     const settings = useSettingsStore.getState();
 

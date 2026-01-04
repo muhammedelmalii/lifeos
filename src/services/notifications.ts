@@ -2,15 +2,23 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { Responsibility, ReminderStyle, EscalationRule } from '@/types';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+// Only set notification handler on native platforms
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+}
 
 export const requestPermissions = async (): Promise<boolean> => {
+  // Notifications are not available on web
+  if (Platform.OS === 'web') {
+    return false;
+  }
+
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
 
@@ -46,6 +54,12 @@ export const requestPermissions = async (): Promise<boolean> => {
 export const scheduleResponsibilityNotifications = async (
   responsibility: Responsibility
 ): Promise<string[]> => {
+  // Notifications are not available on web
+  if (Platform.OS === 'web') {
+    console.log('Notifications not available on web platform');
+    return [];
+  }
+
   const notificationIds: string[] = [];
   const { schedule, reminderStyle, escalationRules, title } = responsibility;
 
@@ -95,14 +109,17 @@ export const scheduleResponsibilityNotifications = async (
 };
 
 export const cancelNotification = async (notificationId: string): Promise<void> => {
+  if (Platform.OS === 'web') return;
   await Notifications.cancelScheduledNotificationAsync(notificationId);
 };
 
 export const cancelAllNotifications = async (): Promise<void> => {
+  if (Platform.OS === 'web') return;
   await Notifications.cancelAllScheduledNotificationsAsync();
 };
 
 export const getScheduledNotifications = async (): Promise<Notifications.NotificationRequest[]> => {
+  if (Platform.OS === 'web') return [];
   return await Notifications.getAllScheduledNotificationsAsync();
 };
 
