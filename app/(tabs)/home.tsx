@@ -18,6 +18,7 @@ import { SwipeableRow } from '@/components/SwipeableRow';
 import { wellnessInsightsService } from '@/services/wellnessInsights';
 import { t } from '@/i18n';
 import { v4 as uuidv4 } from 'uuid';
+import { List } from '@/types/domain';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -136,7 +137,6 @@ export default function HomeScreen() {
         await updateList(existingList.id, { items: updatedItems });
       } else {
         const { addList } = useListsStore.getState();
-        const { List } = await import('@/types/domain');
         const newList: List = {
           id: uuidv4(),
           name: listAction.listName,
@@ -393,7 +393,7 @@ export default function HomeScreen() {
               styles.wellnessCard,
               wellnessInsight.severity === 'critical' && styles.wellnessCardCritical,
               wellnessInsight.severity === 'warning' && styles.wellnessCardWarning,
-            ]}>
+            ] as any}>
               <View style={styles.wellnessHeader}>
                 <Icon 
                   name={wellnessInsight.type === 'stress' ? 'alertCircle' : 'star'} 
