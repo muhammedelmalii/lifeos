@@ -90,13 +90,13 @@ export const ProactiveSuggestions: React.FC<ProactiveSuggestionsProps> = ({
               <View style={styles.actionHeader}>
                 <Icon
                   name={getIconForType(action.type)}
-                  size={24}
+                  size={20}
                   color={getColorForPriority(action.priority)}
                 />
-                <View style={styles.actionContent}>
-                  <Text style={styles.actionTitle}>{action.title}</Text>
-                  <Text style={styles.actionMessage}>{action.message}</Text>
-                </View>
+                <Text style={styles.actionTitle}>{action.title}</Text>
+              </View>
+              <View style={styles.actionMessageContainer}>
+                <Text style={styles.actionMessage}>{action.message}</Text>
               </View>
               {action.action && (
                 <Button
@@ -206,6 +206,8 @@ const styles = StyleSheet.create({
   },
   actionHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
     marginBottom: spacing.sm,
   },
   actionContent: {
@@ -216,7 +218,14 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontWeight: '600',
     color: colors.text.primary,
-    marginBottom: spacing.xs,
+    flex: 1,
+  },
+  actionMessageContainer: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.background.primary,
+    borderRadius: 8,
+    marginBottom: spacing.sm,
   },
   actionMessage: {
     ...typography.bodySmall,
