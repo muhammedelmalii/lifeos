@@ -5,12 +5,14 @@ import { useRouter } from 'expo-router';
 import { colors, spacing, typography, shadows } from '@/theme';
 import { Button, Card, Icon, Badge } from '@/components/ui';
 import { useResponsibilitiesStore } from '@/store/responsibilities';
+import { useListsStore } from '@/store/lists';
 import { useAuthStore } from '@/store';
 import { parseCommandWithAI } from '@/services/aiParser';
 import { startVoiceRecognition } from '@/services/voice';
 import { pickImage, extractTextFromImage } from '@/services/ocr';
 import { formatDateTime, getRelativeTime } from '@/utils/date';
 import { AIUnderstandingSheet } from '@/components/AIUnderstandingSheet';
+import { QueryResultsSheet } from '@/components/QueryResultsSheet';
 import { ProactiveSuggestions } from '@/components/ProactiveSuggestions';
 import { SwipeableRow } from '@/components/SwipeableRow';
 import { wellnessInsightsService } from '@/services/wellnessInsights';
@@ -30,8 +32,8 @@ export default function HomeScreen() {
   const [activeTab, setActiveTab] = useState<'all' | 'missed' | 'upcoming'>('all');
   const [wellnessInsight, setWellnessInsight] = useState<any>(null);
   const [showProactiveSuggestions, setShowProactiveSuggestions] = useState(true);
-  const [wellnessInsight, setWellnessInsight] = useState<any>(null);
-  const [showProactiveSuggestions, setShowProactiveSuggestions] = useState(true);
+  const [queryResults, setQueryResults] = useState<any>(null);
+  const [showQueryResults, setShowQueryResults] = useState(false);
   
   const { 
     getNextCritical, 
@@ -40,9 +42,13 @@ export default function HomeScreen() {
     getMissed,
     getSnoozed,
     getNowMode,
+    getByCategory,
+    getTodayByCategory,
+    getCategories,
     updateResponsibility,
     checkStateTransitions 
   } = useResponsibilitiesStore();
+  const { lists, loadLists, getList } = useListsStore();
   
   const user = useAuthStore((state) => state.user);
   const nextCritical = getNextCritical();
@@ -79,6 +85,15 @@ export default function HomeScreen() {
     const text = inputText.trim();
     try {
       const parsed = await parseCommandWithAI(text, 'text');
+      
+      // Check if this is a query command
+      if (parsed.isQuery) {
+        await handleQueryCommand(parsed, text);
+        setInputText('');
+        return;
+      }
+      
+      // Normal command - create responsibility
       setParsedCommand(parsed);
       setOriginalText(text);
       setCreatedFrom('text');
@@ -87,6 +102,43 @@ export default function HomeScreen() {
     } catch (error) {
       console.error('Failed to parse command:', error);
       // Show error to user (could add toast/alert here)
+    }
+  };
+
+  const handleQueryCommand = async (parsed: any, originalText: string) => {
+    await loadLists();
+    
+    if (parsed.queryType === 'list' && parsed.queryListName) {
+      // Show specific list
+      const list = useListsStore.getState().lists.find(
+        l => l.name.toLowerCase() === parsed.queryListName.toLowerCase()
+      );
+      setQueryResults({
+        type: 'list',
+        listName: parsed.queryListName,
+        list: list,
+        items: list?.items || [],
+      });
+      setShowQueryResults(true);
+    } else if (parsed.queryCategory) {
+      // Show by category
+      const items = parsed.queryType === 'show' && originalText.toLowerCase().includes('today')
+        ? getTodayByCategory(parsed.queryCategory)
+        : getByCategory(parsed.queryCategory);
+      setQueryResults({
+        type: 'category',
+        category: parsed.queryCategory,
+        items: items,
+      });
+      setShowQueryResults(true);
+    } else if (parsed.queryType === 'show') {
+      // General show command - show today's items
+      const today = getTodayByCategory('');
+      setQueryResults({
+        type: 'today',
+        items: today,
+      });
+      setShowQueryResults(true);
     }
   };
 
@@ -102,6 +154,14 @@ export default function HomeScreen() {
       if (text.trim()) {
         try {
           const parsed = await parseCommandWithAI(text, 'voice');
+          
+          // Check if this is a query command
+          if (parsed.isQuery) {
+            await handleQueryCommand(parsed, text);
+            return;
+          }
+          
+          // Normal command - create responsibility
           setParsedCommand(parsed);
           setOriginalText(text);
           setCreatedFrom('voice');
@@ -127,6 +187,14 @@ export default function HomeScreen() {
       if (text.trim()) {
         try {
           const parsed = await parseCommandWithAI(text, 'photo');
+          
+          // Check if this is a query command
+          if (parsed.isQuery) {
+            await handleQueryCommand(parsed, text);
+            return;
+          }
+          
+          // Normal command - create responsibility
           setParsedCommand(parsed);
           setOriginalText(text);
           setCreatedFrom('photo');
@@ -476,6 +544,17 @@ export default function HomeScreen() {
           parsedCommand={parsedCommand}
           originalText={originalText}
           createdFrom={createdFrom}
+        />
+      )}
+
+      {showQueryResults && queryResults && (
+        <QueryResultsSheet
+          visible={showQueryResults}
+          onClose={() => {
+            setShowQueryResults(false);
+            setQueryResults(null);
+          }}
+          results={queryResults}
         />
       )}
     </SafeAreaView>

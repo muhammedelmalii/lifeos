@@ -44,6 +44,7 @@ export const AIUnderstandingSheet: React.FC<AIUnderstandingSheetProps> = ({
       id: uuidv4(),
       title: parsedCommand.title,
       description: parsedCommand.description || originalText,
+      category: parsedCommand.category, // Auto-categorized by GPT
       energyRequired: parsedCommand.energyRequired || 'medium',
       schedule: parsedCommand.schedule || {
         type: 'one-time' as const,

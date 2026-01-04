@@ -4,11 +4,17 @@ import { addDays, addHours, setHours, setMinutes, startOfDay } from 'date-fns';
 export interface ParsedCommand {
   title: string;
   description?: string;
+  category?: string;
   schedule?: Schedule;
   energyRequired?: EnergyLevel;
   reminderStyle?: ReminderStyle;
   recurring?: string;
   listActions?: Array<{ listName: string; items: string[] }>;
+  // Query commands
+  isQuery?: boolean;
+  queryType?: 'list' | 'show' | 'filter';
+  queryCategory?: string;
+  queryListName?: string;
 }
 
 // Rule-based parser for MVP
@@ -205,18 +211,34 @@ export const parseCommandWithAI = async (
 Parse the user's command and return a JSON object with:
 - title: Main task/responsibility title
 - description: Optional detailed description
+- category: One of: 'work', 'shopping', 'health', 'finance', 'home', 'social', 'learning', 'personal', 'market', 'grocery', 'errands', 'appointments', 'meetings', 'exercise', 'meals', 'bills', 'maintenance', 'travel', 'family', 'hobbies'. Be smart about categorizing based on context.
 - schedule: Object with type ('one-time' or 'recurring'), datetime (ISO string), timezone, and optional rrule
 - energyRequired: 'low', 'medium', or 'high'
 - reminderStyle: 'gentle', 'persistent', or 'critical'
 - recurring: Optional RRULE string if recurring
-- listActions: Optional array of {listName, items[]}
+- listActions: Optional array of {listName, items[]}. Automatically create list actions for:
+  * Shopping items → listName: "Shopping List" or "Market List" or "Grocery List"
+  * Multiple items mentioned → extract all items into a list
+  * Market/grocery related → automatically add to shopping list
+  * Work tasks → "Work Tasks" list
+  * Home items → "Home Improvement" list
 
 Be smart about:
 - Understanding context and intent
-- Extracting dates/times (support relative: "tomorrow", "in 2 hours", "next Monday")
+- Extracting dates/times (support relative: "tomorrow", "in 2 hours", "next Monday", "next week")
 - Detecting urgency and importance
 - Identifying recurring patterns
 - Understanding energy requirements from context
+- Auto-categorizing: "buy milk" → category: 'shopping', listActions: [{listName: "Shopping List", items: ["milk"]}]
+- Auto-categorizing: "meeting with John" → category: 'work' or 'social' based on context
+- Auto-categorizing: "doctor appointment" → category: 'health'
+- Extracting multiple items: "buy milk, bread, eggs" → listActions with all items
+- Understanding Turkish and English commands
+- Query detection: "show shopping list" → isQuery: true, queryType: 'list', queryListName: "Shopping List"
+- Query detection: "what's today" → isQuery: true, queryType: 'show'
+- Query detection: "market listesini göster" → isQuery: true, queryType: 'list', queryListName: "Market List"
+- Query detection: "show shopping items" → isQuery: true, queryType: 'filter', queryCategory: 'shopping'
+- Query detection: "bugünkü işleri göster" → isQuery: true, queryType: 'show'
 
 Return ONLY valid JSON, no markdown formatting.`,
           },

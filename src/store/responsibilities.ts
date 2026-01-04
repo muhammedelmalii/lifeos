@@ -22,6 +22,9 @@ interface ResponsibilitiesState {
   getNextCritical: () => Responsibility | null;
   checkStateTransitions: () => Promise<void>; // Auto state machine transitions
   getNowMode: () => Responsibility[]; // Low energy, short duration
+  getByCategory: (category: string) => Responsibility[];
+  getCategories: () => string[];
+  getTodayByCategory: (category: string) => Responsibility[];
 }
 
 const STORAGE_KEY = '@lifeos:responsibilities';
@@ -392,6 +395,41 @@ export const useResponsibilitiesStore = create<ResponsibilitiesState>((set, get)
         return estimatedMinutes <= 15;
       })
       .slice(0, 5); // Max 5 items
+  },
+
+  getByCategory: (category: string) => {
+    return get()
+      .responsibilities.filter(
+        (r) => r.category?.toLowerCase() === category.toLowerCase() && r.status === 'active'
+      )
+      .sort((a, b) => a.schedule.datetime.getTime() - b.schedule.datetime.getTime());
+  },
+
+  getCategories: () => {
+    const categories = new Set<string>();
+    get()
+      .responsibilities.filter((r) => r.category && r.status === 'active')
+      .forEach((r) => {
+        if (r.category) categories.add(r.category);
+      });
+    return Array.from(categories).sort();
+  },
+
+  getTodayByCategory: (category: string) => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    return get()
+      .responsibilities.filter(
+        (r) =>
+          (!category || r.category?.toLowerCase() === category.toLowerCase()) &&
+          r.status === 'active' &&
+          r.schedule.datetime >= today &&
+          r.schedule.datetime < tomorrow
+      )
+      .sort((a, b) => a.schedule.datetime.getTime() - b.schedule.datetime.getTime());
   },
 }));
 
