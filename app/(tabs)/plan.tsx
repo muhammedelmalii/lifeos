@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { colors } from '@/theme';
 import { useResponsibilitiesStore } from '@/store/responsibilities';
 import { TimelineCalendar } from '@/components/TimelineCalendar';
+import { Responsibility } from '@/types';
 
 export default function PlanScreen() {
   const router = useRouter();

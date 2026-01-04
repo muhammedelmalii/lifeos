@@ -139,10 +139,14 @@ export const TimelineCalendar: React.FC<TimelineCalendarProps> = ({
     
     return responsibilities
       .filter((r) => {
-        const rDate = r.schedule.datetime;
+        const rDate = r.schedule?.datetime;
+        if (!rDate) return false;
         return rDate >= dayStart && rDate < dayEnd && r.status === 'active';
       })
-      .sort((a, b) => a.schedule.datetime.getTime() - b.schedule.datetime.getTime());
+      .sort((a, b) => {
+        if (!a.schedule?.datetime || !b.schedule?.datetime) return 0;
+        return a.schedule.datetime.getTime() - b.schedule.datetime.getTime();
+      });
   }, [responsibilities]);
 
   // Zoom değiştir
@@ -297,6 +301,7 @@ export const TimelineCalendar: React.FC<TimelineCalendarProps> = ({
               {/* Responsibilities */}
               <View style={styles.responsibilitiesContainer}>
                 {dayResponsibilities.map((responsibility) => {
+                  if (!responsibility.schedule?.datetime) return null;
                   const rHour = getHours(responsibility.schedule.datetime);
                   const rMinute = getMinutes(responsibility.schedule.datetime);
                   const topPosition = ((rHour * 60 + rMinute) / (24 * 60)) * 200; // 200px yükseklik
