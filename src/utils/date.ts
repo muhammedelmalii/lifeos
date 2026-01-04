@@ -1,16 +1,29 @@
 import { format, parse, isToday, isTomorrow, isYesterday, addDays, startOfDay } from 'date-fns';
 
-export const formatDateTime = (date: Date): string => {
-  if (isToday(date)) {
-    return `Today ${format(date, 'h:mm a')}`;
+export const formatDateTime = (date: Date | string | null | undefined): string => {
+  // Handle invalid or missing dates
+  if (!date) {
+    return 'No date set';
   }
-  if (isTomorrow(date)) {
-    return `Tomorrow ${format(date, 'h:mm a')}`;
+
+  // Convert string to Date if needed
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+
+  // Check if date is valid
+  if (isNaN(dateObj.getTime())) {
+    return 'Invalid date';
   }
-  if (isYesterday(date)) {
-    return `Yesterday ${format(date, 'h:mm a')}`;
+
+  if (isToday(dateObj)) {
+    return `Today ${format(dateObj, 'h:mm a')}`;
   }
-  return format(date, 'MMM d, h:mm a');
+  if (isTomorrow(dateObj)) {
+    return `Tomorrow ${format(dateObj, 'h:mm a')}`;
+  }
+  if (isYesterday(dateObj)) {
+    return `Yesterday ${format(dateObj, 'h:mm a')}`;
+  }
+  return format(dateObj, 'MMM d, h:mm a');
 };
 
 export const formatDate = (date: Date): string => {

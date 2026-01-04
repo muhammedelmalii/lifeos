@@ -159,7 +159,7 @@ export const AIUnderstandingSheet: React.FC<AIUnderstandingSheetProps> = ({
                 <Icon name="calendarIcon" size={24} color={colors.accent.primary} />
                 <Text style={styles.detailLabel}>{t('ai.when')}</Text>
                 <Text style={styles.detailValue}>
-                  {parsedCommand.schedule
+                  {parsedCommand.schedule && parsedCommand.schedule.datetime
                     ? formatDateTime(parsedCommand.schedule.datetime)
                     : 'Not set'}
                 </Text>

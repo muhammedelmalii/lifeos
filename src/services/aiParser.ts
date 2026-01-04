@@ -261,7 +261,17 @@ Return ONLY valid JSON, no markdown formatting.`,
 
     // Convert ISO datetime string to Date object
     if (parsed.schedule?.datetime) {
-      parsed.schedule.datetime = new Date(parsed.schedule.datetime);
+      const dateObj = new Date(parsed.schedule.datetime);
+      // Validate the date
+      if (isNaN(dateObj.getTime())) {
+        // Invalid date, set to default (tomorrow at 10 AM)
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(10, 0, 0, 0);
+        parsed.schedule.datetime = tomorrow;
+      } else {
+        parsed.schedule.datetime = dateObj;
+      }
     }
 
     // Ensure timezone is set
