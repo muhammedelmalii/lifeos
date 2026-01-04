@@ -209,19 +209,26 @@ export const parseCommandWithAI = async (
             role: 'system',
             content: `You are an AI assistant that parses natural language commands into structured responsibility data.
 Parse the user's command and return a JSON object with:
-- title: Main task/responsibility title
+- title: Main task/responsibility title (ONLY if it's a task/responsibility, not a simple shopping item)
 - description: Optional detailed description
 - category: One of: 'work', 'shopping', 'health', 'finance', 'home', 'social', 'learning', 'personal', 'market', 'grocery', 'errands', 'appointments', 'meetings', 'exercise', 'meals', 'bills', 'maintenance', 'travel', 'family', 'hobbies'. Be smart about categorizing based on context.
-- schedule: Object with type ('one-time' or 'recurring'), datetime (ISO string), timezone, and optional rrule
+- schedule: Object with type ('one-time' or 'recurring'), datetime (ISO string), timezone, and optional rrule (ONLY if it's a scheduled task)
 - energyRequired: 'low', 'medium', or 'high'
 - reminderStyle: 'gentle', 'persistent', or 'critical'
 - recurring: Optional RRULE string if recurring
-- listActions: Optional array of {listName, items[]}. Automatically create list actions for:
-  * Shopping items → listName: "Shopping List" or "Market List" or "Grocery List"
-  * Multiple items mentioned → extract all items into a list
-  * Market/grocery related → automatically add to shopping list
-  * Work tasks → "Work Tasks" list
-  * Home items → "Home Improvement" list
+- isQuery: true if this is a query/listing command
+- queryType: 'list' | 'show' | 'filter' (if isQuery is true)
+- queryCategory: Category to filter by (if querying by category)
+- queryListName: List name to query (if querying a specific list)
+- listActions: Optional array of {listName, items[]}. CRITICAL: For simple shopping commands like "ekmek al", "buy bread", "süt al", ONLY create listActions, DO NOT create a responsibility (set title to empty string or null).
+
+IMPORTANT RULES:
+1. Simple shopping items (e.g., "ekmek al", "buy bread", "süt al", "milk al") → ONLY listActions, NO responsibility (title: null or empty)
+2. Shopping with schedule (e.g., "tomorrow buy bread") → BOTH listActions AND responsibility
+3. Multiple items (e.g., "ekmek, süt, yumurta al") → Extract all items into listActions
+4. Shopping items → listName: "Shopping List" or "Market List" or "Grocery List" (use "Shopping List" as default)
+5. Turkish commands: "ekmek al", "süt al", "ekmek, süt al" → listActions only
+6. English commands: "buy bread", "get milk", "buy bread, milk, eggs" → listActions only
 
 Be smart about:
 - Understanding context and intent
@@ -229,16 +236,14 @@ Be smart about:
 - Detecting urgency and importance
 - Identifying recurring patterns
 - Understanding energy requirements from context
-- Auto-categorizing: "buy milk" → category: 'shopping', listActions: [{listName: "Shopping List", items: ["milk"]}]
+- Simple shopping: "ekmek al" → title: null, listActions: [{listName: "Shopping List", items: ["ekmek"]}]
+- Simple shopping: "buy milk, bread" → title: null, listActions: [{listName: "Shopping List", items: ["milk", "bread"]}]
+- Scheduled shopping: "tomorrow buy bread" → title: "Buy bread", schedule: tomorrow, listActions: [{listName: "Shopping List", items: ["bread"]}]
 - Auto-categorizing: "meeting with John" → category: 'work' or 'social' based on context
 - Auto-categorizing: "doctor appointment" → category: 'health'
-- Extracting multiple items: "buy milk, bread, eggs" → listActions with all items
 - Understanding Turkish and English commands
 - Query detection: "show shopping list" → isQuery: true, queryType: 'list', queryListName: "Shopping List"
-- Query detection: "what's today" → isQuery: true, queryType: 'show'
 - Query detection: "market listesini göster" → isQuery: true, queryType: 'list', queryListName: "Market List"
-- Query detection: "show shopping items" → isQuery: true, queryType: 'filter', queryCategory: 'shopping'
-- Query detection: "bugünkü işleri göster" → isQuery: true, queryType: 'show'
 
 Return ONLY valid JSON, no markdown formatting.`,
           },

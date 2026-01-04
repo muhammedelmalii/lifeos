@@ -93,6 +93,14 @@ export default function HomeScreen() {
         return;
       }
       
+      // Check if this is a simple list action (no title = just add to list)
+      if (parsed.listActions && parsed.listActions.length > 0 && (!parsed.title || parsed.title.trim() === '')) {
+        // Directly add to list without showing sheet
+        await handleListOnlyCommand(parsed);
+        setInputText('');
+        return;
+      }
+      
       // Normal command - create responsibility
       setParsedCommand(parsed);
       setOriginalText(text);
@@ -102,6 +110,48 @@ export default function HomeScreen() {
     } catch (error) {
       console.error('Failed to parse command:', error);
       // Show error to user (could add toast/alert here)
+    }
+  };
+
+  const handleListOnlyCommand = async (parsed: any) => {
+    const { loadLists } = useListsStore.getState();
+    await loadLists();
+    
+    for (const listAction of parsed.listActions) {
+      const existingList = useListsStore.getState().lists.find(
+        l => l.name.toLowerCase() === listAction.listName.toLowerCase()
+      );
+
+      if (existingList) {
+        const { updateList } = useListsStore.getState();
+        const newItems = listAction.items.map((item: string) => ({
+          id: uuidv4(),
+          label: item,
+          category: '',
+          checked: false,
+          createdAt: new Date(),
+        }));
+        const updatedItems = [...existingList.items, ...newItems];
+        await updateList(existingList.id, { items: updatedItems });
+      } else {
+        const { addList } = useListsStore.getState();
+        const { List } = await import('@/types/domain');
+        const newList: List = {
+          id: uuidv4(),
+          name: listAction.listName,
+          type: 'market',
+          items: listAction.items.map((item: string) => ({
+            id: uuidv4(),
+            label: item,
+            category: '',
+            checked: false,
+            createdAt: new Date(),
+          })),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        await addList(newList);
+      }
     }
   };
 
@@ -161,6 +211,12 @@ export default function HomeScreen() {
             return;
           }
           
+          // Check if this is a simple list action (no title = just add to list)
+          if (parsed.listActions && parsed.listActions.length > 0 && (!parsed.title || parsed.title.trim() === '')) {
+            await handleListOnlyCommand(parsed);
+            return;
+          }
+          
           // Normal command - create responsibility
           setParsedCommand(parsed);
           setOriginalText(text);
@@ -191,6 +247,12 @@ export default function HomeScreen() {
           // Check if this is a query command
           if (parsed.isQuery) {
             await handleQueryCommand(parsed, text);
+            return;
+          }
+          
+          // Check if this is a simple list action (no title = just add to list)
+          if (parsed.listActions && parsed.listActions.length > 0 && (!parsed.title || parsed.title.trim() === '')) {
+            await handleListOnlyCommand(parsed);
             return;
           }
           
