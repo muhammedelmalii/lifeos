@@ -86,19 +86,24 @@ export default function HomeScreen() {
     if (!inputText.trim()) return;
     const text = inputText.trim();
     try {
+      console.log('🔍 Parsing command:', text);
       const parsed = await parseCommandWithAI(text, 'text');
+      console.log('✅ Parsed result:', JSON.stringify(parsed, null, 2));
       
       // GPT decided this should auto-execute - act as personal assistant
       if (parsed.autoExecute) {
+        console.log('⚡ Auto-execute enabled');
         // Query commands
         if (parsed.isQuery || parsed.actionType === 'query') {
+          console.log('📋 Executing query command');
           await handleQueryCommand(parsed, text);
           setInputText('');
           return;
         }
         
         // List actions (shopping, etc.)
-        if (parsed.actionType === 'list' || (parsed.listActions && parsed.listActions.length > 0 && (!parsed.title || parsed.title.trim() === ''))) {
+        if (parsed.actionType === 'list' || (parsed.listActions && parsed.listActions.length > 0 && (!parsed.title || parsed.title?.trim() === ''))) {
+          console.log('🛒 Executing list command');
           await handleListOnlyCommand(parsed);
           setInputText('');
           return;
@@ -107,68 +112,107 @@ export default function HomeScreen() {
       
       // Check if this is a query command (fallback)
       if (parsed.isQuery) {
+        console.log('📋 Fallback: Executing query command');
         await handleQueryCommand(parsed, text);
         setInputText('');
         return;
       }
       
       // Check if this is a simple list action (fallback)
-      if (parsed.listActions && parsed.listActions.length > 0 && (!parsed.title || parsed.title.trim() === '')) {
+      if (parsed.listActions && parsed.listActions.length > 0 && (!parsed.title || parsed.title?.trim() === '')) {
+        console.log('🛒 Fallback: Executing list command');
         await handleListOnlyCommand(parsed);
         setInputText('');
         return;
       }
       
       // Normal command - needs confirmation
+      console.log('📝 Showing confirmation sheet');
       setParsedCommand(parsed);
       setOriginalText(text);
       setCreatedFrom('text');
       setShowAISheet(true);
       setInputText('');
     } catch (error) {
-      console.error('Failed to parse command:', error);
-      // Show error to user (could add toast/alert here)
+      console.error('❌ Failed to parse command:', error);
+      alert(`Komut işlenirken hata oluştu: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`);
     }
   };
 
   const handleListOnlyCommand = async (parsed: any) => {
-    const { loadLists } = useListsStore.getState();
-    await loadLists();
-    
-    for (const listAction of parsed.listActions) {
-      const existingList = useListsStore.getState().lists.find(
-        l => l.name.toLowerCase() === listAction.listName.toLowerCase()
-      );
+    try {
+      console.log('🛒 handleListOnlyCommand called with:', JSON.stringify(parsed, null, 2));
+      
+      if (!parsed.listActions || parsed.listActions.length === 0) {
+        console.warn('⚠️ No listActions found');
+        alert('Liste işlemi bulunamadı');
+        return;
+      }
 
-      if (existingList) {
-        const { updateList } = useListsStore.getState();
-        const newItems = listAction.items.map((item: string) => ({
-          id: uuidv4(),
-          label: item,
-          category: '',
-          checked: false,
-          createdAt: new Date(),
-        }));
-        const updatedItems = [...existingList.items, ...newItems];
-        await updateList(existingList.id, { items: updatedItems });
-      } else {
-        const { addList } = useListsStore.getState();
-        const newList: List = {
-          id: uuidv4(),
-          name: listAction.listName,
-          type: 'market',
-          items: listAction.items.map((item: string) => ({
+      const { loadLists } = useListsStore.getState();
+      await loadLists();
+      console.log('📋 Lists loaded');
+      
+      let itemsAdded = 0;
+      let listsCreated = 0;
+      
+      for (const listAction of parsed.listActions) {
+        console.log(`📝 Processing list: ${listAction.listName} with items:`, listAction.items);
+        
+        const existingList = useListsStore.getState().lists.find(
+          l => l.name.toLowerCase() === listAction.listName.toLowerCase()
+        );
+
+        if (existingList) {
+          console.log(`✅ Found existing list: ${existingList.name}`);
+          const { updateList } = useListsStore.getState();
+          const newItems = listAction.items.map((item: string) => ({
             id: uuidv4(),
             label: item,
             category: '',
             checked: false,
             createdAt: new Date(),
-          })),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-        await addList(newList);
+          }));
+          const updatedItems = [...existingList.items, ...newItems];
+          await updateList(existingList.id, { items: updatedItems });
+          itemsAdded += newItems.length;
+          console.log(`✅ Added ${newItems.length} items to existing list`);
+        } else {
+          console.log(`🆕 Creating new list: ${listAction.listName}`);
+          const { addList } = useListsStore.getState();
+          const newList: List = {
+            id: uuidv4(),
+            name: listAction.listName,
+            type: 'market',
+            items: listAction.items.map((item: string) => ({
+              id: uuidv4(),
+              label: item,
+              category: '',
+              checked: false,
+              createdAt: new Date(),
+            })),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+          await addList(newList);
+          listsCreated++;
+          itemsAdded += newList.items.length;
+          console.log(`✅ Created new list with ${newList.items.length} items`);
+        }
       }
+      
+      // Show success message
+      if (itemsAdded > 0) {
+        const message = listsCreated > 0 
+          ? `${itemsAdded} öğe ${listsCreated} listeye eklendi`
+          : `${itemsAdded} öğe listeye eklendi`;
+        console.log(`✅ Success: ${message}`);
+        // You can add a toast notification here instead of alert
+        alert(message);
+      }
+    } catch (error) {
+      console.error('❌ Error in handleListOnlyCommand:', error);
+      alert(`Liste işlemi sırasında hata: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`);
     }
   };
 
