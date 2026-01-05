@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { colors, spacing, typography, shadows } from '@/theme';
 import { Card, Button, Chip, Icon, EmptyState, Badge } from '@/components/ui';
 import { useResponsibilitiesStore } from '@/store/responsibilities';
+import { useListsStore } from '@/store/lists';
 import { formatDateTime } from '@/utils/date';
 import { analyticsService, QuickFeedback } from '@/services/analytics';
 import { wellnessInsightsService } from '@/services/wellnessInsights';
@@ -13,13 +14,23 @@ import { t } from '@/i18n';
 export default function NowModeScreen() {
   const router = useRouter();
   const { getNowMode, checkStateTransitions, updateResponsibility, responsibilities, loadResponsibilities } = useResponsibilitiesStore();
+  const { lists, loadLists } = useListsStore();
   const [quickFeedback, setQuickFeedback] = useState<QuickFeedback[]>([]);
   const [productivityScore, setProductivityScore] = useState<number>(0);
   const [todayStats, setTodayStats] = useState<any>(null);
   
+  // Get shopping list
+  const shoppingList = lists.find(l => 
+    l.name.toLowerCase().includes('shopping') || 
+    l.name.toLowerCase().includes('market') || 
+    l.name.toLowerCase().includes('grocery') ||
+    l.name.toLowerCase().includes('alışveriş')
+  );
+  
   useEffect(() => {
     checkStateTransitions();
     loadResponsibilities();
+    loadLists();
   }, []);
 
   useEffect(() => {
@@ -53,6 +64,52 @@ export default function NowModeScreen() {
             Bunalmış mısın? Sadece şu anda yapabileceğin küçük şeyler.
           </Text>
         </View>
+
+        {/* Shopping List Quick Access */}
+        {shoppingList && shoppingList.items.length > 0 && (
+          <Card style={styles.shoppingCard}>
+            <TouchableOpacity 
+              onPress={() => router.push('/lists')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.shoppingHeader}>
+                <View style={styles.shoppingTitleRow}>
+                  <Icon name="shoppingCart" size={24} color={colors.accent.primary} />
+                  <Text style={styles.shoppingTitle}>{shoppingList.name}</Text>
+                  <Badge 
+                    label={`${shoppingList.items.filter(i => !i.checked).length} öğe`}
+                    variant="accent"
+                  />
+                </View>
+                <Icon name="chevronRight" size={20} color={colors.text.tertiary} />
+              </View>
+              <View style={styles.shoppingItems}>
+                {shoppingList.items.slice(0, 3).map((item) => (
+                  <View key={item.id} style={styles.shoppingItem}>
+                    <Icon 
+                      name={item.checked ? "checkCircle" : "circle"} 
+                      size={16} 
+                      color={item.checked ? colors.status.success : colors.text.tertiary} 
+                    />
+                    <Text 
+                      style={[
+                        styles.shoppingItemText,
+                        item.checked && styles.shoppingItemTextChecked
+                      ]}
+                    >
+                      {item.label}
+                    </Text>
+                  </View>
+                ))}
+                {shoppingList.items.length > 3 && (
+                  <Text style={styles.shoppingMore}>
+                    +{shoppingList.items.length - 3} daha...
+                  </Text>
+                )}
+              </View>
+            </TouchableOpacity>
+          </Card>
+        )}
 
         {/* Analytics & Feedback */}
         {todayStats && (
@@ -389,6 +446,52 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.text.secondary,
     marginTop: spacing.xs / 2,
+  },
+  shoppingCard: {
+    padding: spacing.md,
+    backgroundColor: colors.background.secondary,
+    marginBottom: spacing.lg,
+    ...shadows.md,
+  },
+  shoppingHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  shoppingTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flex: 1,
+  },
+  shoppingTitle: {
+    ...typography.h3,
+    color: colors.text.primary,
+    fontWeight: '600',
+    flex: 1,
+  },
+  shoppingItems: {
+    gap: spacing.xs,
+  },
+  shoppingItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  shoppingItemText: {
+    ...typography.body,
+    color: colors.text.primary,
+  },
+  shoppingItemTextChecked: {
+    textDecorationLine: 'line-through',
+    color: colors.text.tertiary,
+  },
+  shoppingMore: {
+    ...typography.bodySmall,
+    color: colors.text.tertiary,
+    marginTop: spacing.xs / 2,
+    fontStyle: 'italic',
   },
 });
 

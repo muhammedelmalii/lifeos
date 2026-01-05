@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Dimens
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors, spacing, typography, shadows } from '@/theme';
-import { Button, Card, Icon, Badge } from '@/components/ui';
+import { Button, Card, Icon, Badge, Toast, useToast } from '@/components/ui';
 import { useResponsibilitiesStore } from '@/store/responsibilities';
 import { useListsStore } from '@/store/lists';
 import { useAuthStore } from '@/store';
@@ -36,6 +36,7 @@ export default function HomeScreen() {
   const [showProactiveSuggestions, setShowProactiveSuggestions] = useState(true);
   const [queryResults, setQueryResults] = useState<any>(null);
   const [showQueryResults, setShowQueryResults] = useState(false);
+  const { toast, showToast, hideToast } = useToast();
   
   const { 
     getNextCritical, 
@@ -135,7 +136,7 @@ export default function HomeScreen() {
       setInputText('');
     } catch (error) {
       console.error('❌ Failed to parse command:', error);
-      alert(`Komut işlenirken hata oluştu: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`);
+      showToast(`Komut işlenirken hata oluştu: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`, 'error');
     }
   };
 
@@ -207,12 +208,11 @@ export default function HomeScreen() {
           ? `${itemsAdded} öğe ${listsCreated} listeye eklendi`
           : `${itemsAdded} öğe listeye eklendi`;
         console.log(`✅ Success: ${message}`);
-        // You can add a toast notification here instead of alert
-        alert(message);
+        showToast(message, 'success');
       }
     } catch (error) {
       console.error('❌ Error in handleListOnlyCommand:', error);
-      alert(`Liste işlemi sırasında hata: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`);
+      showToast(`Liste işlemi sırasında hata: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`, 'error');
     }
   };
 
@@ -239,7 +239,7 @@ export default function HomeScreen() {
           setShowQueryResults(true);
         } else {
           console.warn(`⚠️ List not found: ${parsed.queryListName}`);
-          alert(`Liste bulunamadı: ${parsed.queryListName}`);
+          showToast(`Liste bulunamadı: ${parsed.queryListName}`, 'warning');
         }
       } else if (parsed.queryCategory) {
         console.log(`🔍 Filtering by category: ${parsed.queryCategory}`);
@@ -266,11 +266,11 @@ export default function HomeScreen() {
         setShowQueryResults(true);
       } else {
         console.warn('⚠️ Unknown query type:', parsed.queryType);
-        alert('Sorgu tipi tanınmadı');
+        showToast('Sorgu tipi tanınmadı', 'warning');
       }
     } catch (error) {
       console.error('❌ Error in handleQueryCommand:', error);
-      alert(`Sorgu işlemi sırasında hata: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`);
+      showToast(`Sorgu işlemi sırasında hata: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`, 'error');
     }
   };
 
@@ -370,6 +370,13 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        duration={toast.duration}
+        onHide={hideToast}
+      />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}

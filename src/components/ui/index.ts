@@ -10,4 +10,5 @@ export * from './Switch';
 export * from '../SwipeableRow';
 export * from './LoadingSkeleton';
 export * from './EmptyState';
+export * from './Toast';
 

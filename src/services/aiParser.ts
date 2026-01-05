@@ -265,6 +265,8 @@ Be smart about:
 - Simple shopping: "buy milk, bread" → autoExecute: true, actionType: 'list', title: null, listActions: [{listName: "Shopping List", items: ["milk", "bread"]}]
 - Scheduled shopping: "tomorrow buy bread" → autoExecute: false, actionType: 'create', title: "Buy bread", schedule: tomorrow, listActions: [{listName: "Shopping List", items: ["bread"]}]
 - Query: "show shopping list" → autoExecute: true, actionType: 'query', isQuery: true, queryType: 'list', queryListName: "Shopping List"
+- Query: "alışveriş listesi" → autoExecute: true, actionType: 'query', isQuery: true, queryType: 'list', queryListName: "Shopping List"
+- Query: "alışveriş listesini göster" → autoExecute: true, actionType: 'query', isQuery: true, queryType: 'list', queryListName: "Shopping List"
 - Query: "bugünkü işleri göster" → autoExecute: true, actionType: 'query', isQuery: true, queryType: 'show'
 - Auto-categorizing: "meeting with John" → category: 'work' or 'social' based on context
 - Auto-categorizing: "doctor appointment" → category: 'health'
