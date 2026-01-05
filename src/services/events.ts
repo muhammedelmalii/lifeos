@@ -6,6 +6,7 @@
 import { Responsibility } from '@/types';
 import { automationService } from './automation';
 import { analyzeResponsibilities } from './aiAnalysis';
+import { dynamicAssistantService } from './dynamicAssistant';
 
 export type ResponsibilityEvent =
   | { type: 'created'; responsibility: Responsibility }
@@ -77,7 +78,8 @@ eventSystem.on('created', async (event) => {
 eventSystem.on('updated', async (event) => {
   if (event.type === 'updated') {
     // Re-check conflicts when schedule changes
-    if (event.responsibility.schedule.datetime !== event.previous.schedule.datetime) {
+    if (event.responsibility.schedule?.datetime && event.previous.schedule?.datetime &&
+        event.responsibility.schedule.datetime.getTime() !== event.previous.schedule.datetime.getTime()) {
       await automationService.checkConflicts();
     }
     
@@ -88,6 +90,9 @@ eventSystem.on('updated', async (event) => {
     ) {
       await automationService.runAnalysisPublic();
     }
+
+    // Trigger dynamic assistant analysis for real-time updates
+    await dynamicAssistantService.analyzeAndUpdate();
   }
 });
 
@@ -101,6 +106,9 @@ eventSystem.on('completed', async (event) => {
     
     // Run analysis to update insights
     await automationService.runAnalysisPublic();
+    
+    // Trigger dynamic assistant analysis
+    await dynamicAssistantService.analyzeAndUpdate();
   }
 });
 

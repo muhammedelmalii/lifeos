@@ -16,6 +16,7 @@ import { QueryResultsSheet } from '@/components/QueryResultsSheet';
 import { ProactiveSuggestions } from '@/components/ProactiveSuggestions';
 import { SwipeableRow } from '@/components/SwipeableRow';
 import { wellnessInsightsService } from '@/services/wellnessInsights';
+import { dynamicAssistantService } from '@/services/dynamicAssistant';
 import { t } from '@/i18n';
 import { v4 as uuidv4 } from 'uuid';
 import { List } from '@/types/domain';
@@ -81,6 +82,26 @@ export default function HomeScreen() {
     
     // Load wellness insight
     wellnessInsightsService.getCriticalInsight().then(setWellnessInsight).catch(() => {});
+    
+    // Start dynamic assistant monitoring
+    dynamicAssistantService.startMonitoring();
+    
+    // Check for updates every 2 minutes
+    const updateInterval = setInterval(async () => {
+      const updates = await dynamicAssistantService.getDynamicUpdates();
+      if (updates.length > 0) {
+        // Show most important update
+        const importantUpdate = updates.find(u => u.priority === 'high') || updates[0];
+        if (importantUpdate && !importantUpdate.autoExecute) {
+          showToast(importantUpdate.message, importantUpdate.priority === 'high' ? 'warning' : 'info');
+        }
+      }
+    }, 2 * 60 * 1000);
+
+    return () => {
+      dynamicAssistantService.stopMonitoring();
+      clearInterval(updateInterval);
+    };
   }, []);
 
   const handleTextSubmit = async () => {
