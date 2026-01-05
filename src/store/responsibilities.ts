@@ -210,6 +210,10 @@ export const useResponsibilitiesStore = create<ResponsibilitiesState>((set, get)
         // Emit specific events based on status changes
         if (updates.status === 'completed' && !previous.completedAt) {
           await eventSystem.emit({ type: 'completed', responsibility: apiResponsibility });
+          
+          // Update streak when task is completed
+          const { gamificationService } = await import('@/services/gamification');
+          await gamificationService.updateStreak();
         } else if (updates.status === 'missed' && previous.status !== 'missed') {
           await eventSystem.emit({ type: 'missed', responsibility: apiResponsibility });
         } else if (updates.status === 'snoozed' && previous.status !== 'snoozed') {

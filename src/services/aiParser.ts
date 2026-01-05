@@ -294,6 +294,8 @@ Return ONLY valid JSON, no markdown formatting.`,
     // Convert ISO datetime string to Date object
     if (parsed.schedule?.datetime) {
       const dateObj = new Date(parsed.schedule.datetime);
+      const now = new Date();
+      
       // Validate the date
       if (isNaN(dateObj.getTime())) {
         // Invalid date, set to default (tomorrow at 10 AM)
@@ -302,7 +304,19 @@ Return ONLY valid JSON, no markdown formatting.`,
         tomorrow.setHours(10, 0, 0, 0);
         parsed.schedule.datetime = tomorrow;
       } else {
-        parsed.schedule.datetime = dateObj;
+        // Ensure date is in the future
+        if (dateObj < now) {
+          // Move to tomorrow at same time, or tomorrow 10 AM if time is in the past
+          const tomorrow = new Date();
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          tomorrow.setHours(dateObj.getHours(), dateObj.getMinutes(), 0, 0);
+          if (tomorrow < now) {
+            tomorrow.setHours(10, 0, 0, 0);
+          }
+          parsed.schedule.datetime = tomorrow;
+        } else {
+          parsed.schedule.datetime = dateObj;
+        }
       }
     }
 

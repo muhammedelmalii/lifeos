@@ -9,6 +9,7 @@ import { useListsStore } from '@/store/lists';
 import { formatDateTime } from '@/utils/date';
 import { analyticsService, QuickFeedback } from '@/services/analytics';
 import { wellnessInsightsService } from '@/services/wellnessInsights';
+import { gamificationService } from '@/services/gamification';
 import { t } from '@/i18n';
 
 export default function NowModeScreen() {
@@ -18,6 +19,9 @@ export default function NowModeScreen() {
   const [quickFeedback, setQuickFeedback] = useState<QuickFeedback[]>([]);
   const [productivityScore, setProductivityScore] = useState<number>(0);
   const [todayStats, setTodayStats] = useState<any>(null);
+  const [streak, setStreak] = useState<any>(null);
+  const [achievements, setAchievements] = useState<any[]>([]);
+  const [encouragement, setEncouragement] = useState<string>('');
   
   // Get shopping list
   const shoppingList = lists.find(l => 
@@ -42,6 +46,19 @@ export default function NowModeScreen() {
     setQuickFeedback(feedback);
     setProductivityScore(score);
     setTodayStats(stats);
+
+    // Load gamification
+    const loadGamification = async () => {
+      const streakData = await gamificationService.getStreak();
+      const achievementsData = await gamificationService.getAchievements();
+      const encouragementMsg = gamificationService.getEncouragementMessage(streakData, stats);
+      
+      setStreak(streakData);
+      setAchievements(achievementsData);
+      setEncouragement(encouragementMsg);
+    };
+    
+    loadGamification();
   }, [responsibilities]);
 
   const nowModeItems = getNowMode();
@@ -63,6 +80,22 @@ export default function NowModeScreen() {
           <Text style={styles.subtitle}>
             Bunalmış mısın? Sadece şu anda yapabileceğin küçük şeyler.
           </Text>
+          
+          {/* Streak & Encouragement */}
+          {streak && streak.current > 0 && (
+            <Card style={styles.streakCard as any}>
+              <View style={styles.streakRow}>
+                <Icon name="flame" size={24} color={colors.status.warning} />
+                <View style={styles.streakInfo}>
+                  <Text style={styles.streakLabel}>Günlük Seri</Text>
+                  <Text style={styles.streakValue}>{streak.current} gün</Text>
+                </View>
+                {encouragement && (
+                  <Text style={styles.encouragement}>{encouragement}</Text>
+                )}
+              </View>
+            </Card>
+          )}
         </View>
 
         {/* Shopping List Quick Access */}
@@ -492,6 +525,94 @@ const styles = StyleSheet.create({
     color: colors.text.tertiary,
     marginTop: spacing.xs / 2,
     fontStyle: 'italic',
+  },
+  streakCard: {
+    padding: spacing.md,
+    backgroundColor: colors.background.secondary,
+    marginTop: spacing.md,
+    ...shadows.sm,
+  },
+  streakRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  streakInfo: {
+    flex: 1,
+  },
+  streakLabel: {
+    ...typography.caption,
+    color: colors.text.tertiary,
+  },
+  streakValue: {
+    ...typography.h3,
+    color: colors.text.primary,
+    fontWeight: '700',
+  },
+  encouragement: {
+    ...typography.bodySmall,
+    color: colors.accent.primary,
+    fontWeight: '600',
+  },
+  achievementsCard: {
+    padding: spacing.md,
+    backgroundColor: colors.background.secondary,
+    marginTop: spacing.md,
+    ...shadows.sm,
+  },
+  achievementsTitle: {
+    ...typography.h3,
+    color: colors.text.primary,
+    marginBottom: spacing.md,
+    fontWeight: '600',
+  },
+  achievementsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  achievementItem: {
+    width: '48%',
+    padding: spacing.sm,
+    backgroundColor: colors.background.primary,
+    borderRadius: 12,
+    alignItems: 'center',
+    opacity: 0.5,
+  },
+  achievementUnlocked: {
+    opacity: 1,
+    borderWidth: 2,
+    borderColor: colors.status.success,
+  },
+  achievementTitle: {
+    ...typography.bodySmall,
+    color: colors.text.tertiary,
+    marginTop: spacing.xs,
+    textAlign: 'center',
+    fontSize: 11,
+  },
+  achievementTitleUnlocked: {
+    color: colors.text.primary,
+    fontWeight: '600',
+  },
+  achievementProgress: {
+    width: '100%',
+    height: 4,
+    backgroundColor: colors.border.secondary,
+    borderRadius: 2,
+    marginTop: spacing.xs,
+    overflow: 'hidden',
+  },
+  achievementProgressBar: {
+    height: '100%',
+    backgroundColor: colors.accent.primary,
+    borderRadius: 2,
+  },
+  achievementProgressText: {
+    ...typography.caption,
+    color: colors.text.tertiary,
+    marginTop: spacing.xs / 2,
+    fontSize: 10,
   },
 });
 

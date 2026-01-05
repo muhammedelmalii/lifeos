@@ -48,7 +48,7 @@ export const AIUnderstandingSheet: React.FC<AIUnderstandingSheetProps> = ({
       energyRequired: parsedCommand.energyRequired || 'medium',
       schedule: parsedCommand.schedule || {
         type: 'one-time' as const,
-        datetime: new Date(),
+        datetime: getTomorrowMorning(),
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       },
       reminderStyle: parsedCommand.reminderStyle || 'gentle',
@@ -61,6 +61,22 @@ export const AIUnderstandingSheet: React.FC<AIUnderstandingSheetProps> = ({
       createdAt: new Date(),
       updatedAt: new Date(),
     };
+
+    // Ensure date is in the future
+    if (responsibility.schedule && responsibility.schedule.datetime) {
+      const now = new Date();
+      if (responsibility.schedule.datetime < now) {
+        // Move to tomorrow at same time, or tomorrow 10 AM if time is in the past
+        const tomorrow = getTomorrowMorning();
+        const originalTime = responsibility.schedule.datetime;
+        tomorrow.setHours(originalTime.getHours(), originalTime.getMinutes(), 0, 0);
+        if (tomorrow < now) {
+          responsibility.schedule.datetime = getTomorrowMorning();
+        } else {
+          responsibility.schedule.datetime = tomorrow;
+        }
+      }
+    }
 
     // 2. Create calendar event if schedule exists
     let calendarEventId: string | null = null;
