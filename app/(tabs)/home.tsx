@@ -217,39 +217,60 @@ export default function HomeScreen() {
   };
 
   const handleQueryCommand = async (parsed: any, originalText: string) => {
-    await loadLists();
-    
-    if (parsed.queryType === 'list' && parsed.queryListName) {
-      // Show specific list
-      const list = useListsStore.getState().lists.find(
-        l => l.name.toLowerCase() === parsed.queryListName.toLowerCase()
-      );
-      setQueryResults({
-        type: 'list',
-        listName: parsed.queryListName,
-        list: list,
-        items: list?.items || [],
-      });
-      setShowQueryResults(true);
-    } else if (parsed.queryCategory) {
-      // Show by category
-      const items = parsed.queryType === 'show' && originalText.toLowerCase().includes('today')
-        ? getTodayByCategory(parsed.queryCategory)
-        : getByCategory(parsed.queryCategory);
-      setQueryResults({
-        type: 'category',
-        category: parsed.queryCategory,
-        items: items,
-      });
-      setShowQueryResults(true);
-    } else if (parsed.queryType === 'show') {
-      // General show command - show today's items
-      const today = getTodayByCategory('');
-      setQueryResults({
-        type: 'today',
-        items: today,
-      });
-      setShowQueryResults(true);
+    try {
+      console.log('📋 handleQueryCommand called with:', JSON.stringify(parsed, null, 2));
+      
+      await loadLists();
+      
+      if (parsed.queryType === 'list' && parsed.queryListName) {
+        console.log(`🔍 Looking for list: ${parsed.queryListName}`);
+        // Show specific list
+        const list = useListsStore.getState().lists.find(
+          l => l.name.toLowerCase() === parsed.queryListName.toLowerCase()
+        );
+        if (list) {
+          console.log(`✅ Found list with ${list.items.length} items`);
+          setQueryResults({
+            type: 'list',
+            listName: parsed.queryListName,
+            list: list,
+            items: list.items,
+          });
+          setShowQueryResults(true);
+        } else {
+          console.warn(`⚠️ List not found: ${parsed.queryListName}`);
+          alert(`Liste bulunamadı: ${parsed.queryListName}`);
+        }
+      } else if (parsed.queryCategory) {
+        console.log(`🔍 Filtering by category: ${parsed.queryCategory}`);
+        // Show by category
+        const items = parsed.queryType === 'show' && originalText.toLowerCase().includes('today')
+          ? getTodayByCategory(parsed.queryCategory)
+          : getByCategory(parsed.queryCategory);
+        console.log(`✅ Found ${items.length} items`);
+        setQueryResults({
+          type: 'category',
+          category: parsed.queryCategory,
+          items: items,
+        });
+        setShowQueryResults(true);
+      } else if (parsed.queryType === 'show') {
+        console.log('🔍 Showing today\'s items');
+        // General show command - show today's items
+        const today = getTodayByCategory('');
+        console.log(`✅ Found ${today.length} items for today`);
+        setQueryResults({
+          type: 'today',
+          items: today,
+        });
+        setShowQueryResults(true);
+      } else {
+        console.warn('⚠️ Unknown query type:', parsed.queryType);
+        alert('Sorgu tipi tanınmadı');
+      }
+    } catch (error) {
+      console.error('❌ Error in handleQueryCommand:', error);
+      alert(`Sorgu işlemi sırasında hata: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`);
     }
   };
 
