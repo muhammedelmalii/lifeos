@@ -207,9 +207,9 @@ export default function NowModeScreen() {
                     key={index} 
                     style={[
                       styles.feedbackCard,
-                      feedback.type === 'positive' && styles.feedbackCardPositive,
-                      feedback.type === 'warning' && styles.feedbackCardWarning,
-                    ]}
+                      feedback.type === 'positive' ? styles.feedbackCardPositive : null,
+                      feedback.type === 'warning' ? styles.feedbackCardWarning : null,
+                    ].filter(Boolean) as any}
                   >
                     <View style={styles.feedbackHeader}>
                       <Icon 

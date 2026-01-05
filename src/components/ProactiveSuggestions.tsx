@@ -32,14 +32,22 @@ export const ProactiveSuggestions: React.FC<ProactiveSuggestionsProps> = ({
   const loadSuggestions = async () => {
     setIsLoading(true);
     try {
-      const [proactive, contextual] = await Promise.all([
-        proactiveHelpService.getSuggestions(),
-        contextAwarenessService.getContextualSuggestions(),
-      ]);
+      const proactive = await proactiveHelpService.getSuggestions();
       setSuggestions(proactive);
-      setContextualSuggestions(contextual);
+      
+      // Try to get contextual suggestions, but don't fail if it errors
+      try {
+        const contextual = await contextAwarenessService.getContextualSuggestions();
+        setContextualSuggestions(contextual || []);
+      } catch (contextError) {
+        console.warn('Contextual suggestions failed:', contextError);
+        setContextualSuggestions([]);
+      }
     } catch (error) {
       console.error('Error loading suggestions:', error);
+      // Set empty arrays on error so component doesn't break
+      setSuggestions([]);
+      setContextualSuggestions([]);
     } finally {
       setIsLoading(false);
     }
@@ -53,8 +61,33 @@ export const ProactiveSuggestions: React.FC<ProactiveSuggestionsProps> = ({
     }
   };
 
-  if (!visible || (suggestions.length === 0 && contextualSuggestions.length === 0)) {
+  // Show loading state or empty state
+  if (!visible) {
     return null;
+  }
+
+  // Show even if empty, but with a message
+  if (suggestions.length === 0 && contextualSuggestions.length === 0 && !isLoading) {
+    return (
+      <View style={styles.container}>
+        <Card style={styles.card}>
+          <View style={styles.header}>
+            <View style={styles.headerLeft}>
+              <Icon name="star" size={20} color={colors.accent.primary} />
+              <Text style={styles.title}>Size Yardımcı Olabilirim</Text>
+            </View>
+            {onDismiss && (
+              <TouchableOpacity onPress={onDismiss} style={styles.dismissButton}>
+                <Text style={styles.dismissText}>✕</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>Şu anda öneri yok. Her şey yolunda görünüyor! 🎉</Text>
+          </View>
+        </Card>
+      </View>
+    );
   }
 
   return (

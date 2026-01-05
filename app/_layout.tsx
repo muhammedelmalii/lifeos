@@ -96,6 +96,13 @@ export default function RootLayout() {
         proactiveHelpService.getSuggestions().catch(() => {});
       }, 15 * 60 * 1000);
 
+      // Start gamified notifications (check every hour for streak reminders)
+      const { gamifiedNotificationsService } = require('@/services/gamifiedNotifications');
+      setInterval(() => {
+        gamifiedNotificationsService.sendStreakReminder().catch(() => {});
+        gamifiedNotificationsService.sendDailyMotivation().catch(() => {});
+      }, 60 * 60 * 1000);
+
       // Wellness insights check (every hour)
       wellnessInterval = setInterval(() => {
         wellnessInsightsService.getCriticalInsight().catch(() => {});

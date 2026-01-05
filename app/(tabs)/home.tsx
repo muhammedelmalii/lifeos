@@ -86,6 +86,13 @@ export default function HomeScreen() {
     // Start dynamic assistant monitoring
     dynamicAssistantService.startMonitoring();
     
+    // Refresh proactive suggestions periodically
+    const suggestionsInterval = setInterval(() => {
+      // Force refresh by toggling visibility
+      setShowProactiveSuggestions(false);
+      setTimeout(() => setShowProactiveSuggestions(true), 100);
+    }, 5 * 60 * 1000); // Every 5 minutes
+    
     // Check for updates every 2 minutes
     const updateInterval = setInterval(async () => {
       const updates = await dynamicAssistantService.getDynamicUpdates();
@@ -101,6 +108,7 @@ export default function HomeScreen() {
     return () => {
       dynamicAssistantService.stopMonitoring();
       clearInterval(updateInterval);
+      clearInterval(suggestionsInterval);
     };
   }, []);
 

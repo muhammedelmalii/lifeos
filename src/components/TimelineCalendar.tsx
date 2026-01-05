@@ -197,6 +197,12 @@ export const TimelineCalendar: React.FC<TimelineCalendarProps> = ({
           x: (todayIndex - startOffset) * dayWidth,
           animated: true,
         });
+      } else if (scrollViewRef.current) {
+        // If today not in visible days, scroll to center
+        scrollViewRef.current.scrollTo({
+          x: startOffset * dayWidth,
+          animated: true,
+        });
       }
     }, 100);
   };
@@ -221,19 +227,19 @@ export const TimelineCalendar: React.FC<TimelineCalendarProps> = ({
               style={[styles.zoomButton, zoomLevel === 1 && styles.zoomButtonActive]}
               onPress={() => handleZoomChange(1)}
             >
-              <Text style={[styles.zoomButtonText, zoomLevel === 1 && styles.zoomButtonTextActive]}>Day</Text>
+              <Text style={[styles.zoomButtonText, zoomLevel === 1 && styles.zoomButtonTextActive]}>Gün</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.zoomButton, zoomLevel === 2 && styles.zoomButtonActive]}
               onPress={() => handleZoomChange(2)}
             >
-              <Text style={[styles.zoomButtonText, zoomLevel === 2 && styles.zoomButtonTextActive]}>Week</Text>
+              <Text style={[styles.zoomButtonText, zoomLevel === 2 && styles.zoomButtonTextActive]}>Hafta</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.zoomButton, zoomLevel === 3 && styles.zoomButtonActive]}
               onPress={() => handleZoomChange(3)}
             >
-              <Text style={[styles.zoomButtonText, zoomLevel === 3 && styles.zoomButtonTextActive]}>Month</Text>
+              <Text style={[styles.zoomButtonText, zoomLevel === 3 && styles.zoomButtonTextActive]}>Ay</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -285,7 +291,7 @@ export const TimelineCalendar: React.FC<TimelineCalendarProps> = ({
               <View style={styles.dayHeader}>
                 <View>
                   <Text style={[styles.dayName, { color: dayColors.primary }]}>
-                    {isTodayDate ? 'Today' : isTomorrowDate ? 'Tomorrow' : isYesterdayDate ? 'Yesterday' : format(day, 'EEE')}
+                    {isTodayDate ? 'Bugün' : isTomorrowDate ? 'Yarın' : isYesterdayDate ? 'Dün' : format(day, 'EEE')}
                   </Text>
                   <Text style={[styles.dayNumber, { color: dayColors.accent }]}>
                     {getDate(day)}

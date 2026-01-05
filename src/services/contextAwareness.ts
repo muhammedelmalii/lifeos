@@ -44,11 +44,14 @@ class ContextAwarenessService {
     // Calculate workload
     const today = startOfDay(now);
     const tomorrow = addDays(today, 1);
-    const todayTasks = responsibilities.filter(r =>
-      r.status === 'active' &&
-      isAfter(r.schedule.datetime, today) &&
-      isBefore(r.schedule.datetime, tomorrow)
-    );
+    const todayTasks = responsibilities.filter(r => {
+      if (r.status !== 'active' || !r.schedule?.datetime) return false;
+      try {
+        return r.schedule.datetime >= today && r.schedule.datetime < tomorrow;
+      } catch {
+        return false;
+      }
+    });
 
     let workload: UserContext['workload'] = 'light';
     if (todayTasks.length === 0) workload = 'light';
@@ -58,15 +61,30 @@ class ContextAwarenessService {
 
     // Find current and next tasks
     const activeTasks = responsibilities
-      .filter(r => r.status === 'active')
-      .sort((a, b) => a.schedule.datetime.getTime() - b.schedule.datetime.getTime());
+      .filter(r => r.status === 'active' && r.schedule?.datetime)
+      .sort((a, b) => {
+        if (!a.schedule?.datetime || !b.schedule?.datetime) return 0;
+        return a.schedule.datetime.getTime() - b.schedule.datetime.getTime();
+      });
 
-    const currentTask = activeTasks.find(r =>
-      isBefore(r.schedule.datetime, now) &&
-      isAfter(addHours(r.schedule.datetime, 2), now) // Task started but not finished
-    );
+    const currentTask = activeTasks.find(r => {
+      if (!r.schedule?.datetime) return false;
+      try {
+        return isBefore(r.schedule.datetime, now) &&
+               isAfter(addHours(r.schedule.datetime, 2), now);
+      } catch {
+        return false;
+      }
+    });
 
-    const nextTask = activeTasks.find(r => isAfter(r.schedule.datetime, now));
+    const nextTask = activeTasks.find(r => {
+      if (!r.schedule?.datetime) return false;
+      try {
+        return isAfter(r.schedule.datetime, now);
+      } catch {
+        return false;
+      }
+    });
 
     // Calculate available time
     const availableTime = nextTask
