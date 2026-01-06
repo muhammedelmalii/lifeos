@@ -90,7 +90,9 @@ export default function NowModeScreen() {
         <View style={styles.header}>
           <Text style={styles.title}>Şimdi Ne Yapabilirim?</Text>
           <Text style={styles.subtitle}>
-            Bunalmış mısın? Sadece şu anda yapabileceğin küçük şeyler.
+            {nowModeItems.length > 0 
+              ? `${nowModeItems.length} görev şu anda yapılabilir`
+              : 'Şu anda yapabileceğin bir şey yok. Dinlenmek de üretkendir.'}
           </Text>
           
           {/* Streak & Encouragement */}
@@ -159,60 +161,58 @@ export default function NowModeScreen() {
           </Card>
         )}
 
-        {/* Analytics & Feedback */}
-        {todayStats && (
+        {/* Quick Stats - Compact */}
+        {todayStats && todayStats.total > 0 && (
+          <View style={styles.quickStatsSection}>
+            <View style={styles.quickStatsRow}>
+              <View style={styles.quickStatItem}>
+                <Text style={styles.quickStatValue}>{todayStats.completed}</Text>
+                <Text style={styles.quickStatLabel}>Tamamlandı</Text>
+              </View>
+              <View style={styles.quickStatDivider} />
+              <View style={styles.quickStatItem}>
+                <Text style={[styles.quickStatValue, { color: colors.status.error }]}>
+                  {todayStats.missed}
+                </Text>
+                <Text style={styles.quickStatLabel}>Kaçırılan</Text>
+              </View>
+              <View style={styles.quickStatDivider} />
+              <View style={styles.quickStatItem}>
+                <Text style={[styles.quickStatValue, { color: colors.accent.primary }]}>
+                  %{todayStats.completionRate}
+                </Text>
+                <Text style={styles.quickStatLabel}>Başarı</Text>
+              </View>
+            </View>
+          </View>
+        )}
+        
+        {/* Analytics & Feedback - Collapsible */}
+        {todayStats && todayStats.total > 0 && (
           <View style={styles.analyticsSection}>
-            {/* Productivity Score */}
-            <AnimatedCard delay={0} variant="elevated" style={styles.scoreCard}>
-              <View style={styles.scoreHeader}>
-                <Icon name="trendingUp" size={24} color={colors.accent.primary} />
-                <Text style={styles.scoreLabel}>Üretkenlik Skoru</Text>
-              </View>
-              <View style={styles.scoreContainer}>
-                <Text style={styles.scoreValue}>{productivityScore}</Text>
-                <Text style={styles.scoreUnit}>/100</Text>
-              </View>
-              <View style={styles.scoreBar}>
-                <View 
-                  style={[
-                    styles.scoreBarFill, 
-                    { 
-                      width: `${productivityScore}%`,
-                      backgroundColor: productivityScore >= 70 ? colors.status.success : 
-                                      productivityScore >= 50 ? colors.status.warning : 
-                                      colors.status.error,
-                    }
-                  ]} 
-                />
-              </View>
-            </AnimatedCard>
+            {/* Productivity Score - Compact */}
+            {productivityScore > 0 && (
+              <AnimatedCard delay={0} variant="elevated" style={styles.scoreCard}>
+                <View style={styles.scoreHeader}>
+                  <Icon name="trendingUp" size={20} color={colors.accent.primary} />
+                  <Text style={styles.scoreLabel}>Üretkenlik: {productivityScore}/100</Text>
+                </View>
+                <View style={styles.scoreBar}>
+                  <View 
+                    style={[
+                      styles.scoreBarFill, 
+                      { 
+                        width: `${productivityScore}%`,
+                        backgroundColor: productivityScore >= 70 ? colors.status.success : 
+                                        productivityScore >= 50 ? colors.status.warning : 
+                                        colors.status.error,
+                      }
+                    ]} 
+                  />
+                </View>
+              </AnimatedCard>
+            )}
 
-            {/* Today's Stats */}
-            <AnimatedCard delay={50} variant="elevated" style={styles.statsCard}>
-              <Text style={styles.statsTitle}>Bugün</Text>
-              <View style={styles.statsGrid}>
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{todayStats.completed}</Text>
-                  <Text style={styles.statLabel}>Tamamlandı</Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Text style={[styles.statValue, { color: colors.status.error }]}>
-                    {todayStats.missed}
-                  </Text>
-                  <Text style={styles.statLabel}>Kaçırılan</Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{todayStats.total}</Text>
-                  <Text style={styles.statLabel}>Toplam</Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Text style={[styles.statValue, { color: colors.accent.primary }]}>
-                    %{todayStats.completionRate}
-                  </Text>
-                  <Text style={styles.statLabel}>Başarı</Text>
-                </View>
-              </View>
-            </AnimatedCard>
 
             {/* Quick Feedback */}
             {quickFeedback.length > 0 && (
@@ -672,6 +672,39 @@ const styles = StyleSheet.create({
     color: colors.text.tertiary,
     marginTop: spacing.xs / 2,
     fontSize: 10,
+  },
+  quickStatsSection: {
+    marginBottom: spacing.lg,
+  },
+  quickStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background.secondary,
+    borderRadius: 12,
+    padding: spacing.md,
+    ...shadows.sm,
+  },
+  quickStatItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  quickStatValue: {
+    ...typography.h2,
+    fontSize: 24,
+    color: colors.text.primary,
+    fontWeight: '700',
+    marginBottom: spacing.xs / 2,
+  },
+  quickStatLabel: {
+    ...typography.caption,
+    color: colors.text.tertiary,
+    fontSize: 11,
+  },
+  quickStatDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: colors.border.primary,
+    marginHorizontal: spacing.sm,
   },
   quickActionsSection: {
     marginBottom: spacing.xl,

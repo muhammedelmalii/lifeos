@@ -38,6 +38,7 @@ export default function HomeScreen() {
   const [showProactiveSuggestions, setShowProactiveSuggestions] = useState(true);
   const [queryResults, setQueryResults] = useState<any>(null);
   const [showQueryResults, setShowQueryResults] = useState(false);
+  const [isProcessingCommand, setIsProcessingCommand] = useState(false);
   const { toast, showToast, hideToast } = useToast();
   
   const { 
@@ -116,8 +117,13 @@ export default function HomeScreen() {
 
   const handleTextSubmit = async () => {
     if (!inputText.trim()) return;
+    if (isProcessingCommand) return; // Prevent double submission
+    
     hapticFeedback.selection();
     const text = inputText.trim();
+    setIsProcessingCommand(true);
+    showToast('Komut işleniyor...', 'info');
+    
     try {
       console.log('🔍 Parsing command:', text);
       const parsed = await parseCommandWithAI(text, 'text');
@@ -131,6 +137,7 @@ export default function HomeScreen() {
           console.log('📋 Executing query command');
           await handleQueryCommand(parsed, text);
           setInputText('');
+          setIsProcessingCommand(false);
           return;
         }
         
@@ -139,6 +146,7 @@ export default function HomeScreen() {
           console.log('🛒 Executing list command');
           await handleListOnlyCommand(parsed);
           setInputText('');
+          setIsProcessingCommand(false);
           return;
         }
       }
@@ -148,6 +156,7 @@ export default function HomeScreen() {
         console.log('📋 Fallback: Executing query command');
         await handleQueryCommand(parsed, text);
         setInputText('');
+        setIsProcessingCommand(false);
         return;
       }
       
@@ -156,6 +165,7 @@ export default function HomeScreen() {
         console.log('🛒 Fallback: Executing list command');
         await handleListOnlyCommand(parsed);
         setInputText('');
+        setIsProcessingCommand(false);
         return;
       }
       
@@ -166,10 +176,12 @@ export default function HomeScreen() {
       setCreatedFrom('text');
       setShowAISheet(true);
       setInputText('');
+      setIsProcessingCommand(false);
     } catch (error) {
       console.error('❌ Failed to parse command:', error);
       hapticFeedback.error();
       showToast(`Komut işlenirken hata oluştu: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`, 'error');
+      setIsProcessingCommand(false);
     }
   };
 
@@ -179,7 +191,7 @@ export default function HomeScreen() {
       
       if (!parsed.listActions || parsed.listActions.length === 0) {
         console.warn('⚠️ No listActions found');
-        alert('Liste işlemi bulunamadı');
+        showToast('Liste işlemi bulunamadı', 'warning');
         return;
       }
 
@@ -445,7 +457,7 @@ export default function HomeScreen() {
           ]}>
             <TextInput
               style={styles.input}
-              placeholder="Add a task or note..."
+              placeholder={isProcessingCommand ? "İşleniyor..." : "Add a task or note..."}
               placeholderTextColor={colors.text.tertiary}
               value={inputText}
               onChangeText={setInputText}
@@ -455,6 +467,7 @@ export default function HomeScreen() {
               onSubmitEditing={handleTextSubmit}
               returnKeyType="done"
               textAlignVertical="top"
+              editable={!isProcessingCommand}
             />
             {inputText.trim().length > 0 && (
               <TouchableOpacity
