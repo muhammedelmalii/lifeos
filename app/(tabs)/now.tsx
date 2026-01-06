@@ -9,7 +9,7 @@ import { useListsStore } from '@/store/lists';
 import { formatDateTime, formatTime } from '@/utils/date';
 import { hapticFeedback } from '@/utils/haptics';
 import { AnimatedCard, Skeleton, SkeletonCard } from '@/components/ui';
-import { analyticsService, QuickFeedback } from '@/services/analytics';
+import { analyticsService, QuickFeedback, DailyStats } from '@/services/analytics';
 import { wellnessInsightsService } from '@/services/wellnessInsights';
 import { gamificationService } from '@/services/gamification';
 import { t } from '@/i18n';
@@ -21,8 +21,8 @@ export default function NowModeScreen() {
   const { showToast } = useToast();
   const [quickFeedback, setQuickFeedback] = useState<QuickFeedback[]>([]);
   const [productivityScore, setProductivityScore] = useState<number>(0);
-  const [todayStats, setTodayStats] = useState<any>(null);
-  const [streak, setStreak] = useState<any>(null);
+  const [todayStats, setTodayStats] = useState<DailyStats | null>(null);
+  const [streak, setStreak] = useState<{ current: number; longest: number; lastActiveDate: Date | null } | null>(null);
   const [achievements, setAchievements] = useState<any[]>([]);
   const [encouragement, setEncouragement] = useState<string>('');
   
@@ -114,7 +114,10 @@ export default function NowModeScreen() {
         {shoppingList && shoppingList.items.length > 0 && (
           <Card style={styles.shoppingCard}>
             <TouchableOpacity 
-              onPress={() => router.push('/lists')}
+              onPress={() => {
+                hapticFeedback.selection();
+                router.push('/(tabs)/lists');
+              }}
               activeOpacity={0.7}
             >
               <View style={styles.shoppingHeader}>
