@@ -139,13 +139,23 @@ export const TimelineCalendar: React.FC<TimelineCalendarProps> = ({
     
     return responsibilities
       .filter((r) => {
-        const rDate = r.schedule?.datetime;
-        if (!rDate) return false;
-        return rDate >= dayStart && rDate < dayEnd && r.status === 'active';
+        if (!r.schedule?.datetime || r.status !== 'active') return false;
+        try {
+          const rDate = r.schedule.datetime;
+          // Check if responsibility date is on the same day
+          return rDate >= dayStart && rDate < dayEnd;
+        } catch (error) {
+          console.error('Error filtering responsibility:', error);
+          return false;
+        }
       })
       .sort((a, b) => {
         if (!a.schedule?.datetime || !b.schedule?.datetime) return 0;
-        return a.schedule.datetime.getTime() - b.schedule.datetime.getTime();
+        try {
+          return a.schedule.datetime.getTime() - b.schedule.datetime.getTime();
+        } catch {
+          return 0;
+        }
       });
   }, [responsibilities]);
 

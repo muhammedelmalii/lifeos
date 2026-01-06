@@ -6,11 +6,14 @@ import { Button, Card, Icon } from '@/components/ui';
 import { useResponsibilitiesStore } from '@/store/responsibilities';
 import { getTomorrowMorning } from '@/utils/date';
 import { t } from '@/i18n';
+import { hapticFeedback } from '@/utils/haptics';
+import { useToast } from '@/components/ui';
 
 export default function CouldntDoItScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { updateResponsibility } = useResponsibilitiesStore();
+  const { updateResponsibility, loadResponsibilities } = useResponsibilitiesStore();
+  const { showToast } = useToast();
   const [selectedReason, setSelectedReason] = useState<string | null>(null);
 
   const reasons = [
@@ -21,6 +24,7 @@ export default function CouldntDoItScreen() {
   ];
 
   const handleReschedule = async () => {
+    hapticFeedback.success();
     const tomorrow = getTomorrowMorning();
     await updateResponsibility(id, {
       status: 'active',
@@ -31,11 +35,16 @@ export default function CouldntDoItScreen() {
       },
       snoozedUntil: undefined,
     });
+    showToast('Görev yarına ertelendi', 'success');
+    await loadResponsibilities();
     router.back();
   };
 
   const handleArchive = async () => {
+    hapticFeedback.medium();
     await updateResponsibility(id, { status: 'archived' });
+    showToast('Görev arşivlendi', 'info');
+    await loadResponsibilities();
     router.back();
   };
 
@@ -64,7 +73,10 @@ export default function CouldntDoItScreen() {
               styles.reasonButton,
               selectedReason === 'no-time' && styles.reasonButtonSelected,
             ]}
-            onPress={() => setSelectedReason('no-time')}
+            onPress={() => {
+              hapticFeedback.selection();
+              setSelectedReason('no-time');
+            }}
             activeOpacity={0.7}
           >
             <Icon name="clock" size={32} color={selectedReason === 'no-time' ? colors.accent.primary : colors.text.primary} />
@@ -83,7 +95,10 @@ export default function CouldntDoItScreen() {
               styles.reasonButton,
               selectedReason === 'low-energy' && styles.reasonButtonSelected,
             ]}
-            onPress={() => setSelectedReason('low-energy')}
+            onPress={() => {
+              hapticFeedback.selection();
+              setSelectedReason('low-energy');
+            }}
             activeOpacity={0.7}
           >
             <Icon name="battery" size={32} color={selectedReason === 'low-energy' ? colors.accent.primary : colors.text.primary} />
@@ -102,7 +117,10 @@ export default function CouldntDoItScreen() {
               styles.reasonButton,
               selectedReason === 'forgot' && styles.reasonButtonSelected,
             ]}
-            onPress={() => setSelectedReason('forgot')}
+            onPress={() => {
+              hapticFeedback.selection();
+              setSelectedReason('forgot');
+            }}
             activeOpacity={0.7}
           >
             <Text style={styles.reasonIcon}>🧠</Text>
@@ -121,7 +139,10 @@ export default function CouldntDoItScreen() {
               styles.reasonButton,
               selectedReason === 'priority' && styles.reasonButtonSelected,
             ]}
-            onPress={() => setSelectedReason('priority')}
+            onPress={() => {
+              hapticFeedback.selection();
+              setSelectedReason('priority');
+            }}
             activeOpacity={0.7}
           >
             <Text style={styles.reasonIcon}>↕️</Text>

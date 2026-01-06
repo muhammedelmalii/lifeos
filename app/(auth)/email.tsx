@@ -2,30 +2,36 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { colors, spacing, typography } from '@/theme';
-import { Input, Button } from '@/components/ui';
+import { Input, Button, useToast } from '@/components/ui';
 import { useAuthStore } from '@/store';
 import { t } from '@/i18n';
+import { hapticFeedback } from '@/utils/haptics';
 
 export default function EmailLoginScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const { signInWithMagicLink } = useAuthStore();
+  const { showToast } = useToast();
 
   const handleContinue = async () => {
     if (!email.trim()) return;
 
+    hapticFeedback.medium();
     setLoading(true);
     try {
       await signInWithMagicLink(email);
-      // Magic link sent, show success message
-      // TODO: Show success message and instructions
+      showToast('Giriş linki e-postanıza gönderildi!', 'success');
       router.back();
     } catch (error) {
       console.error('Magic link error:', error);
-      // TODO: Show error message to user
+      hapticFeedback.error();
+      showToast(
+        error instanceof Error ? error.message : 'E-posta gönderilirken bir hata oluştu',
+        'error'
+      );
     } finally {
-      setLoading(false);
+      setLoading(null);
     }
   };
 

@@ -17,8 +17,10 @@ import { List } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import { scheduleResponsibilityNotifications } from '@/services/notifications';
 import { createCalendarEvent } from '@/services/calendar';
-import { formatDateTime } from '@/utils/date';
+import { formatDateTime, getTomorrowMorning } from '@/utils/date';
 import { t } from '@/i18n';
+import { useToast } from '@/components/ui';
+import { hapticFeedback } from '@/utils/haptics';
 
 interface AIUnderstandingSheetProps {
   visible: boolean;

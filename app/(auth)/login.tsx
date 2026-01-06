@@ -4,21 +4,26 @@ import { useRouter } from 'expo-router';
 import { colors, spacing, typography } from '@/theme';
 import { useAuthStore } from '@/store';
 import { t } from '@/i18n';
-import { Icon } from '@/components/ui';
+import { Icon, useToast } from '@/components/ui';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { signInWithApple, signInWithGoogle } = useAuthStore();
+  const { showToast } = useToast();
   const [loading, setLoading] = useState<'apple' | 'google' | null>(null);
 
   const handleAppleLogin = async () => {
     try {
       setLoading('apple');
       await signInWithApple();
+      showToast('Giriş başarılı!', 'success');
       router.replace('/(tabs)/home');
     } catch (error) {
       console.error('Apple login error:', error);
-      // TODO: Show error message to user
+      showToast(
+        error instanceof Error ? error.message : 'Giriş yapılırken bir hata oluştu',
+        'error'
+      );
     } finally {
       setLoading(null);
     }
@@ -28,10 +33,14 @@ export default function LoginScreen() {
     try {
       setLoading('google');
       await signInWithGoogle();
+      showToast('Giriş başarılı!', 'success');
       router.replace('/(tabs)/home');
     } catch (error) {
       console.error('Google login error:', error);
-      // TODO: Show error message to user
+      showToast(
+        error instanceof Error ? error.message : 'Giriş yapılırken bir hata oluştu',
+        'error'
+      );
     } finally {
       setLoading(null);
     }

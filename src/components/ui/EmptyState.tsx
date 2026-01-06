@@ -1,13 +1,16 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 import { colors, spacing, typography } from '@/theme';
 import { Icon } from './Icon';
+import { Button } from './Button';
 
 interface EmptyStateProps {
   icon?: string;
   title: string;
   subtitle?: string;
   action?: React.ReactNode;
+  actionLabel?: string;
+  onAction?: () => void;
 }
 
 export const EmptyState: React.FC<EmptyStateProps> = ({
@@ -15,18 +18,50 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   title,
   subtitle,
   action,
+  actionLabel,
+  onAction,
 }) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
   return (
-    <View style={styles.container}>
+    <Animated.View style={[styles.container, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
       {icon && (
-        <View style={styles.iconContainer}>
-          <Icon name={icon} size={48} color={colors.text.tertiary} />
-        </View>
+        <Animated.View style={styles.iconContainer}>
+          <Icon name={icon} size={64} color={colors.text.tertiary} />
+        </Animated.View>
       )}
       <Text style={styles.title}>{title}</Text>
       {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
-      {action && <View style={styles.actionContainer}>{action}</View>}
-    </View>
+      {(action || (actionLabel && onAction)) && (
+        <View style={styles.actionContainer}>
+          {action || (actionLabel && onAction && (
+            <Button
+              title={actionLabel}
+              onPress={onAction}
+              variant="primary"
+              size="medium"
+            />
+          ))}
+        </View>
+      )}
+    </Animated.View>
   );
 };
 

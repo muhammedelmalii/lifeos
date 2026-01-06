@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors } from '@/theme';
 import { useResponsibilitiesStore } from '@/store/responsibilities';
-import { TimelineCalendar } from '@/components/TimelineCalendar';
+import { ModernCalendar } from '@/components/ModernCalendar';
 import { Responsibility } from '@/types';
 
 export default function PlanScreen() {
@@ -26,7 +26,7 @@ export default function PlanScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <TimelineCalendar
+      <ModernCalendar
         responsibilities={responsibilities}
         onDateSelect={handleDateSelect}
         onResponsibilityPress={handleResponsibilityPress}

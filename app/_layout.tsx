@@ -153,6 +153,7 @@ export default function RootLayout() {
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="responsibility/[id]" />
               <Stack.Screen name="couldnt-do-it/[id]" />
+              <Stack.Screen name="list/[id]" />
             </Stack>
           </QueryClientProvider>
         </SafeAreaProvider>

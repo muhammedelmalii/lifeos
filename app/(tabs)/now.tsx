@@ -3,10 +3,12 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors, spacing, typography, shadows } from '@/theme';
-import { Card, Button, Chip, Icon, EmptyState, Badge } from '@/components/ui';
+import { Card, Button, Chip, Icon, EmptyState, Badge, useToast } from '@/components/ui';
 import { useResponsibilitiesStore } from '@/store/responsibilities';
 import { useListsStore } from '@/store/lists';
-import { formatDateTime } from '@/utils/date';
+import { formatDateTime, formatTime } from '@/utils/date';
+import { hapticFeedback } from '@/utils/haptics';
+import { AnimatedCard, Skeleton, SkeletonCard } from '@/components/ui';
 import { analyticsService, QuickFeedback } from '@/services/analytics';
 import { wellnessInsightsService } from '@/services/wellnessInsights';
 import { gamificationService } from '@/services/gamification';
@@ -16,6 +18,7 @@ export default function NowModeScreen() {
   const router = useRouter();
   const { getNowMode, checkStateTransitions, updateResponsibility, responsibilities, loadResponsibilities } = useResponsibilitiesStore();
   const { lists, loadLists } = useListsStore();
+  const { showToast } = useToast();
   const [quickFeedback, setQuickFeedback] = useState<QuickFeedback[]>([]);
   const [productivityScore, setProductivityScore] = useState<number>(0);
   const [todayStats, setTodayStats] = useState<any>(null);
@@ -64,7 +67,16 @@ export default function NowModeScreen() {
   const nowModeItems = getNowMode();
 
   const handleComplete = async (id: string) => {
+    hapticFeedback.success();
     await updateResponsibility(id, { status: 'completed', completedAt: new Date() });
+    // Refresh data after completion
+    await loadResponsibilities();
+    showToast('Görev tamamlandı!', 'success');
+  };
+
+  const handleStartTask = (id: string) => {
+    hapticFeedback.medium();
+    router.push(`/responsibility/${id}`);
   };
 
   return (
@@ -148,7 +160,7 @@ export default function NowModeScreen() {
         {todayStats && (
           <View style={styles.analyticsSection}>
             {/* Productivity Score */}
-            <Card style={styles.scoreCard}>
+            <AnimatedCard delay={0} variant="elevated" style={styles.scoreCard}>
               <View style={styles.scoreHeader}>
                 <Icon name="trendingUp" size={24} color={colors.accent.primary} />
                 <Text style={styles.scoreLabel}>Üretkenlik Skoru</Text>
@@ -170,10 +182,10 @@ export default function NowModeScreen() {
                   ]} 
                 />
               </View>
-            </Card>
+            </AnimatedCard>
 
             {/* Today's Stats */}
-            <Card style={styles.statsCard}>
+            <AnimatedCard delay={50} variant="elevated" style={styles.statsCard}>
               <Text style={styles.statsTitle}>Bugün</Text>
               <View style={styles.statsGrid}>
                 <View style={styles.statItem}>
@@ -197,7 +209,7 @@ export default function NowModeScreen() {
                   <Text style={styles.statLabel}>Başarı</Text>
                 </View>
               </View>
-            </Card>
+            </AnimatedCard>
 
             {/* Quick Feedback */}
             {quickFeedback.length > 0 && (
@@ -238,11 +250,46 @@ export default function NowModeScreen() {
           </View>
         )}
 
+        {/* Quick Actions */}
+        <View style={styles.quickActionsSection}>
+          <Text style={styles.sectionTitle}>Hızlı Erişim</Text>
+          <View style={styles.quickActionsGrid}>
+            <TouchableOpacity 
+              style={styles.quickActionCard}
+              onPress={() => {
+                hapticFeedback.medium();
+                router.push('/(tabs)/lists');
+              }}
+              activeOpacity={0.7}
+            >
+              <Icon name="list" size={24} color={colors.accent.primary} />
+              <Text style={styles.quickActionText}>Listeler</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.quickActionCard}
+              onPress={() => router.push('/(tabs)/plan')}
+              activeOpacity={0.7}
+            >
+              <Icon name="calendarIcon" size={24} color={colors.accent.primary} />
+              <Text style={styles.quickActionText}>Takvim</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.quickActionCard}
+              onPress={() => router.push('/(tabs)/home')}
+              activeOpacity={0.7}
+            >
+              <Icon name="plus" size={24} color={colors.accent.primary} />
+              <Text style={styles.quickActionText}>Görev Ekle</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Items */}
         {nowModeItems.length > 0 ? (
           <View style={styles.itemsList}>
-            {nowModeItems.map((item) => (
-              <Card key={item.id} style={styles.itemCard}>
+            <Text style={styles.sectionTitle}>Şimdi Yapabileceklerin</Text>
+            {nowModeItems.map((item, index) => (
+              <AnimatedCard key={item.id} delay={index * 50} variant="elevated" style={styles.itemCard}>
                 <View style={styles.itemHeader}>
                   <View style={styles.itemContent}>
                     <Text style={styles.itemTitle}>{item.title}</Text>
@@ -251,26 +298,35 @@ export default function NowModeScreen() {
                     )}
                     <View style={styles.itemMeta}>
                       <Chip 
-                        label={item.energyRequired === 'low' ? 'Low Energy' : item.energyRequired}
+                        label={item.energyRequired === 'low' ? 'Düşük Enerji' : item.energyRequired === 'medium' ? 'Orta Enerji' : 'Yüksek Enerji'}
                         variant="default"
                         style={styles.energyChip}
                       />
-                      {item.checklist.length > 0 && (
-                        <Text style={styles.checklistHint}>
-                          {item.checklist.length} quick steps
+                      {item.schedule?.datetime && (
+                        <Text style={styles.timeHint}>
+                          {formatTime(item.schedule.datetime)}
                         </Text>
                       )}
                     </View>
                   </View>
                 </View>
-                <Button
-                  title="Başla"
-                  onPress={() => router.push(`/responsibility/${item.id}`)}
-                  size="medium"
-                  variant="primary"
-                  style={styles.startButton}
-                />
-              </Card>
+                <View style={styles.itemActions}>
+                  <Button
+                    title="Başla"
+                    onPress={() => handleStartTask(item.id)}
+                    size="medium"
+                    variant="primary"
+                    style={styles.startButton}
+                  />
+                  <Button
+                    title="Tamamla"
+                    onPress={() => handleComplete(item.id)}
+                    size="medium"
+                    variant="secondary"
+                    style={styles.completeButton}
+                  />
+                </View>
+              </AnimatedCard>
             ))}
           </View>
         ) : (
@@ -613,6 +669,47 @@ const styles = StyleSheet.create({
     color: colors.text.tertiary,
     marginTop: spacing.xs / 2,
     fontSize: 10,
+  },
+  quickActionsSection: {
+    marginBottom: spacing.xl,
+  },
+  sectionTitle: {
+    ...typography.h3,
+    color: colors.text.primary,
+    fontWeight: '700',
+    marginBottom: spacing.md,
+  },
+  quickActionsGrid: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  quickActionCard: {
+    flex: 1,
+    padding: spacing.md,
+    backgroundColor: colors.background.secondary,
+    borderRadius: 12,
+    alignItems: 'center',
+    gap: spacing.sm,
+    ...shadows.sm,
+  },
+  quickActionText: {
+    ...typography.bodySmall,
+    color: colors.text.primary,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  itemActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  completeButton: {
+    flex: 1,
+  },
+  timeHint: {
+    ...typography.caption,
+    color: colors.text.tertiary,
+    marginLeft: spacing.sm,
   },
 });
 

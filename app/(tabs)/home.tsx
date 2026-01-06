@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Dimens
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors, spacing, typography, shadows } from '@/theme';
-import { Button, Card, Icon, Badge, Toast, useToast } from '@/components/ui';
+import { Button, Card, Icon, Badge, Toast, useToast, Skeleton, SkeletonCard, AnimatedCard } from '@/components/ui';
 import { useResponsibilitiesStore } from '@/store/responsibilities';
 import { useListsStore } from '@/store/lists';
 import { useAuthStore } from '@/store';
@@ -11,6 +11,7 @@ import { parseCommandWithAI } from '@/services/aiParser';
 import { startVoiceRecognition } from '@/services/voice';
 import { pickImage, extractTextFromImage } from '@/services/ocr';
 import { formatDateTime, getRelativeTime } from '@/utils/date';
+import { hapticFeedback } from '@/utils/haptics';
 import { AIUnderstandingSheet } from '@/components/AIUnderstandingSheet';
 import { QueryResultsSheet } from '@/components/QueryResultsSheet';
 import { ProactiveSuggestions } from '@/components/ProactiveSuggestions';
@@ -50,7 +51,8 @@ export default function HomeScreen() {
     getTodayByCategory,
     getCategories,
     updateResponsibility,
-    checkStateTransitions 
+    checkStateTransitions,
+    isLoading
   } = useResponsibilitiesStore();
   const { lists, loadLists, getList } = useListsStore();
   
@@ -114,6 +116,7 @@ export default function HomeScreen() {
 
   const handleTextSubmit = async () => {
     if (!inputText.trim()) return;
+    hapticFeedback.selection();
     const text = inputText.trim();
     try {
       console.log('🔍 Parsing command:', text);
@@ -165,6 +168,7 @@ export default function HomeScreen() {
       setInputText('');
     } catch (error) {
       console.error('❌ Failed to parse command:', error);
+      hapticFeedback.error();
       showToast(`Komut işlenirken hata oluştu: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`, 'error');
     }
   };
@@ -237,10 +241,12 @@ export default function HomeScreen() {
           ? `${itemsAdded} öğe ${listsCreated} listeye eklendi`
           : `${itemsAdded} öğe listeye eklendi`;
         console.log(`✅ Success: ${message}`);
+        hapticFeedback.success();
         showToast(message, 'success');
       }
     } catch (error) {
       console.error('❌ Error in handleListOnlyCommand:', error);
+      hapticFeedback.error();
       showToast(`Liste işlemi sırasında hata: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`, 'error');
     }
   };
@@ -345,6 +351,7 @@ export default function HomeScreen() {
 
   const handlePhotoPress = async () => {
     try {
+      hapticFeedback.medium();
       const uri = await pickImage();
       if (!uri) return;
       const ocrResult = await extractTextFromImage(uri);
@@ -607,7 +614,10 @@ export default function HomeScreen() {
                 )}
                 <TouchableOpacity
                   style={[styles.tab, activeTab === 'upcoming' && styles.tabActive]}
-                  onPress={() => setActiveTab('upcoming')}
+                  onPress={() => {
+                    hapticFeedback.selection();
+                    setActiveTab('upcoming');
+                  }}
                 >
                   <Text style={[styles.tabText, activeTab === 'upcoming' && styles.tabTextActive]}>Upcoming</Text>
                   {upcoming.length > 0 && (
@@ -620,25 +630,38 @@ export default function HomeScreen() {
             </View>
 
             {/* Tasks List */}
-            {filteredItems.length > 0 ? (
+            {isLoading ? (
+              <View style={styles.loadingContainer}>
+                <SkeletonCard />
+                <SkeletonCard />
+                <SkeletonCard />
+              </View>
+            ) : filteredItems.length > 0 ? (
               <>
-                {filteredItems.slice(0, 8).map((item) => (
-                  <SwipeableRow
+                {filteredItems.slice(0, 8).map((item, index) => (
+                  <AnimatedCard
                     key={item.id}
-                    onSwipeRight={async () => await handleComplete(item.id)}
-                    onSwipeLeft={() => router.push(`/couldnt-do-it/${item.id}`)}
+                    delay={index * 50}
+                    onPress={() => router.push(`/responsibility/${item.id}`)}
                   >
-                    <TouchableOpacity
-                      style={[styles.taskItem, missed.includes(item) && styles.taskItemMissed]}
-                      onPress={() => router.push(`/responsibility/${item.id}`)}
-                      activeOpacity={0.7}
+                    <SwipeableRow
+                      onSwipeRight={async () => {
+                        hapticFeedback.success();
+                        await handleComplete(item.id);
+                      }}
+                      onSwipeLeft={() => {
+                        hapticFeedback.medium();
+                        router.push(`/couldnt-do-it/${item.id}`);
+                      }}
                     >
+                    <View style={[styles.taskItem, missed.includes(item) && styles.taskItemMissed]}>
                       <View style={styles.taskCheckbox}>
                         <View style={styles.checkCircle}>
                           <TouchableOpacity
                             style={styles.checkButton}
                             onPress={(e) => {
                               e.stopPropagation();
+                              hapticFeedback.success();
                               handleComplete(item.id);
                             }}
                           >
@@ -671,8 +694,9 @@ export default function HomeScreen() {
                           <Icon name="alertCircle" size={12} color={colors.status.error} />
                         </View>
                       )}
-                    </TouchableOpacity>
+                    </View>
                   </SwipeableRow>
+                </AnimatedCard>
                 ))}
                 {filteredItems.length > 8 && (
                   <TouchableOpacity
@@ -1159,5 +1183,8 @@ const styles = StyleSheet.create({
     color: colors.accent.primary,
     fontStyle: 'italic',
     marginTop: spacing.xs,
+  },
+  loadingContainer: {
+    gap: spacing.md,
   },
 });

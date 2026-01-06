@@ -8,11 +8,14 @@ import { useResponsibilitiesStore } from '@/store/responsibilities';
 import { formatDateTime, getTomorrowMorning, getTonight, addHours } from '@/utils/date';
 import { Responsibility } from '@/types';
 import { t } from '@/i18n';
+import { hapticFeedback } from '@/utils/haptics';
+import { useToast } from '@/components/ui';
 
 export default function ResponsibilityDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { responsibilities, updateResponsibility } = useResponsibilitiesStore();
+  const { responsibilities, updateResponsibility, loadResponsibilities } = useResponsibilitiesStore();
+  const { showToast } = useToast();
   const [responsibility, setResponsibility] = useState<Responsibility | null>(null);
 
   useEffect(() => {
@@ -29,24 +32,33 @@ export default function ResponsibilityDetailScreen() {
   }
 
   const handleComplete = async () => {
+    hapticFeedback.success();
     await updateResponsibility(id, { status: 'completed', completedAt: new Date() });
+    showToast('Görev tamamlandı!', 'success');
+    await loadResponsibilities();
     router.back();
   };
 
   const handleSnooze = async (until: Date) => {
+    hapticFeedback.medium();
     await updateResponsibility(id, { status: 'snoozed', snoozedUntil: until });
+    showToast('Görev ertelendi', 'info');
+    await loadResponsibilities();
     router.back();
   };
 
   const handleCouldntDoIt = () => {
+    hapticFeedback.medium();
     router.push(`/couldnt-do-it/${id}`);
   };
 
   const handleChecklistToggle = async (checklistId: string) => {
+    hapticFeedback.light();
     const updatedChecklist = responsibility.checklist.map((item) =>
       item.id === checklistId ? { ...item, done: !item.done } : item
     );
     await updateResponsibility(id, { checklist: updatedChecklist });
+    await loadResponsibilities();
   };
 
   const completedCount = responsibility.checklist.filter((item) => item.done).length;
@@ -346,11 +358,32 @@ const styles = StyleSheet.create({
   actionButton: {
     width: '100%',
   },
-  errorText: {
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xl,
+  },
+  loadingText: {
     ...typography.body,
     color: colors.text.secondary,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xl,
+  },
+  errorText: {
+    ...typography.h3,
+    color: colors.text.secondary,
     textAlign: 'center',
-    marginTop: spacing.xxl,
+    marginTop: spacing.lg,
+    marginBottom: spacing.xl,
+  },
+  backButton: {
+    marginTop: spacing.lg,
+    minWidth: 120,
   },
 });
 

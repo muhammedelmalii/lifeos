@@ -42,6 +42,20 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="now"
+        options={{
+          title: 'Now',
+          tabBarIcon: ({ color }) => <TabIcon name="now" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="lists"
+        options={{
+          title: 'Lists',
+          tabBarIcon: ({ color }) => <TabIcon name="list" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
           title: 'Settings',
@@ -62,6 +76,8 @@ function TabIcon({ name, color }: { name: string; color: string }) {
   const icons: Record<string, string> = {
     home: '🏠',
     calendar: '📅',
+    now: '⚡',
+    list: '🗒️',
     settings: '⚙️',
   };
   return <Text style={{ fontSize: 24 }}>{icons[name] || '•'}</Text>;
