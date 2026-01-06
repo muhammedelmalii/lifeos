@@ -192,6 +192,7 @@ export default function HomeScreen() {
       if (!parsed.listActions || parsed.listActions.length === 0) {
         console.warn('⚠️ No listActions found');
         showToast('Liste işlemi bulunamadı', 'warning');
+        setIsProcessingCommand(false);
         return;
       }
 
@@ -255,11 +256,15 @@ export default function HomeScreen() {
         console.log(`✅ Success: ${message}`);
         hapticFeedback.success();
         showToast(message, 'success');
+      } else {
+        showToast('Hiçbir öğe eklenemedi', 'warning');
       }
+      setIsProcessingCommand(false);
     } catch (error) {
       console.error('❌ Error in handleListOnlyCommand:', error);
       hapticFeedback.error();
       showToast(`Liste işlemi sırasında hata: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`, 'error');
+      setIsProcessingCommand(false);
     }
   };
 
@@ -315,15 +320,24 @@ export default function HomeScreen() {
         console.warn('⚠️ Unknown query type:', parsed.queryType);
         showToast('Sorgu tipi tanınmadı', 'warning');
       }
+      setIsProcessingCommand(false);
     } catch (error) {
       console.error('❌ Error in handleQueryCommand:', error);
+      hapticFeedback.error();
       showToast(`Sorgu işlemi sırasında hata: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`, 'error');
+      setIsProcessingCommand(false);
     }
   };
 
   const handleVoicePress = async () => {
+    if (isProcessingCommand) return;
+    
     try {
       setIsListening(true);
+      setIsProcessingCommand(true);
+      hapticFeedback.selection();
+      showToast('Ses dinleniyor...', 'info');
+      
       const { stop } = await startVoiceRecognition();
       const result = await stop();
       const text = result.text;
@@ -332,7 +346,20 @@ export default function HomeScreen() {
       
       if (text.trim()) {
         try {
+          showToast('Komut işleniyor...', 'info');
           const parsed = await parseCommandWithAI(text, 'voice');
+          
+          // Auto-execute logic
+          if (parsed.autoExecute) {
+            if (parsed.isQuery || parsed.actionType === 'query') {
+              await handleQueryCommand(parsed, text);
+              return;
+            }
+            if (parsed.actionType === 'list' || (parsed.listActions && parsed.listActions.length > 0 && (!parsed.title || parsed.title?.trim() === ''))) {
+              await handleListOnlyCommand(parsed);
+              return;
+            }
+          }
           
           // Check if this is a query command
           if (parsed.isQuery) {
@@ -351,27 +378,47 @@ export default function HomeScreen() {
           setOriginalText(text);
           setCreatedFrom('voice');
           setShowAISheet(true);
+          setIsProcessingCommand(false);
         } catch (error) {
           console.error('Failed to parse voice command:', error);
+          hapticFeedback.error();
+          showToast(`Ses komutu işlenirken hata: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`, 'error');
+          setIsProcessingCommand(false);
         }
+      } else {
+        setIsProcessingCommand(false);
       }
     } catch (error) {
       console.error('Voice recognition error:', error);
+      hapticFeedback.error();
+      showToast(`Ses tanıma hatası: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`, 'error');
       setIsListening(false);
+      setIsProcessingCommand(false);
     }
   };
 
   const handlePhotoPress = async () => {
+    if (isProcessingCommand) return;
+    
     try {
+      setIsProcessingCommand(true);
       hapticFeedback.medium();
+      showToast('Fotoğraf seçiliyor...', 'info');
+      
       const uri = await pickImage();
-      if (!uri) return;
+      if (!uri) {
+        setIsProcessingCommand(false);
+        return;
+      }
+      
+      showToast('Metin çıkarılıyor...', 'info');
       const ocrResult = await extractTextFromImage(uri);
       const text = ocrResult.text;
       setInputText(text);
       
       if (text.trim()) {
         try {
+          showToast('Komut işleniyor...', 'info');
           const parsed = await parseCommandWithAI(text, 'photo');
           
           // GPT decided this should auto-execute
@@ -403,12 +450,21 @@ export default function HomeScreen() {
           setOriginalText(text);
           setCreatedFrom('photo');
           setShowAISheet(true);
+          setIsProcessingCommand(false);
         } catch (error) {
           console.error('Failed to parse photo text:', error);
+          hapticFeedback.error();
+          showToast(`Fotoğraf komutu işlenirken hata: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`, 'error');
+          setIsProcessingCommand(false);
         }
+      } else {
+        setIsProcessingCommand(false);
       }
     } catch (error) {
       console.error('Photo picker error:', error);
+      hapticFeedback.error();
+      showToast(`Fotoğraf işleme hatası: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`, 'error');
+      setIsProcessingCommand(false);
     }
   };
 
