@@ -29,15 +29,23 @@ class SmartNotificationsService {
       return '';
     }
 
+    // Check permissions first
+    const { requestPermissions } = require('./notifications');
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) {
+      console.warn('Notification permissions not granted, cannot schedule notification');
+      return '';
+    }
+
     const context = await contextAwarenessService.getContext();
     const settings = useSettingsStore.getState();
 
     // Adjust timing based on context
-    let trigger: Date | null = null;
+    let triggerDate: Date | null = null;
     
     if (notification.timing === 'optimal') {
       // Find optimal time based on context
-      trigger = this.findOptimalNotificationTime(context);
+      triggerDate = this.findOptimalNotificationTime(context);
     }
 
     // Adjust priority based on context
@@ -52,6 +60,17 @@ class SmartNotificationsService {
       priority = 'medium';
     }
 
+    // Convert Date to seconds or null for immediate
+    let trigger: { seconds: number } | null = null;
+    if (triggerDate) {
+      const now = new Date();
+      const secondsUntil = Math.floor((triggerDate.getTime() - now.getTime()) / 1000);
+      if (secondsUntil > 0) {
+        trigger = { seconds: secondsUntil };
+      }
+      // If in the past, send immediately (null trigger)
+    }
+
     const notificationId = await Notifications.scheduleNotificationAsync({
       content: {
         title: notification.title,
@@ -60,7 +79,7 @@ class SmartNotificationsService {
         sound: priority === 'high',
         priority: this.mapPriority(priority),
       },
-      trigger: trigger || null, // Immediate if no trigger
+      trigger: trigger, // null = immediate, { seconds: X } = scheduled
     });
 
     return notificationId;

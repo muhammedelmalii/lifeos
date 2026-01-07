@@ -60,8 +60,25 @@ export const scheduleResponsibilityNotifications = async (
     return [];
   }
 
+  // Check permissions first
+  const hasPermission = await requestPermissions();
+  if (!hasPermission) {
+    console.warn('Notification permissions not granted, cannot schedule notifications');
+    return [];
+  }
+
   const notificationIds: string[] = [];
   const { schedule, reminderStyle, escalationRules, title } = responsibility;
+
+  if (!schedule?.datetime) {
+    console.warn('No schedule datetime for responsibility, cannot schedule notification');
+    return [];
+  }
+
+  // Convert Date to seconds (relative to now) or Date object
+  const triggerDate = schedule.datetime;
+  const now = new Date();
+  const secondsUntil = Math.max(0, Math.floor((triggerDate.getTime() - now.getTime()) / 1000));
 
   // Schedule main notification
   const mainId = await Notifications.scheduleNotificationAsync({
@@ -76,14 +93,16 @@ export const scheduleResponsibilityNotifications = async (
       sound: true,
       priority: reminderStyle === 'critical' ? Notifications.AndroidNotificationPriority.MAX : Notifications.AndroidNotificationPriority.HIGH,
     },
-    trigger: schedule.datetime,
+    trigger: secondsUntil > 0 ? { seconds: secondsUntil } : null, // Immediate if in the past
   });
   notificationIds.push(mainId);
 
   // Schedule escalation notifications
   for (const rule of escalationRules) {
     const triggerDate = new Date(schedule.datetime.getTime() - rule.offsetMinutes * 60000);
-    if (triggerDate > new Date()) {
+    const now = new Date();
+    if (triggerDate > now) {
+      const secondsUntil = Math.floor((triggerDate.getTime() - now.getTime()) / 1000);
       const id = await Notifications.scheduleNotificationAsync({
         content: {
           title: title,
@@ -99,7 +118,7 @@ export const scheduleResponsibilityNotifications = async (
               ? Notifications.AndroidNotificationPriority.MAX
               : Notifications.AndroidNotificationPriority.HIGH,
         },
-        trigger: triggerDate,
+        trigger: { seconds: secondsUntil },
       });
       notificationIds.push(id);
     }

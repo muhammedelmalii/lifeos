@@ -16,6 +16,7 @@ import { wellnessInsightsService } from '@/services/wellnessInsights';
 import { predictiveActionsService } from '@/services/predictiveActions';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { errorTrackingService } from '@/services/errorTracking';
+import { requestPermissions as requestNotificationPermissions } from '@/services/notifications';
 
 const queryClient = new QueryClient();
 
@@ -54,6 +55,11 @@ export default function RootLayout() {
         // Check state transitions (non-blocking)
         useResponsibilitiesStore.getState().checkStateTransitions().catch(() => {
           // Silently fail
+        });
+
+        // Request notification permissions (non-blocking)
+        requestNotificationPermissions().catch((error) => {
+          console.error('Failed to request notification permissions:', error);
         });
       } catch (error) {
         console.error('Failed to initialize stores:', error);
