@@ -6,7 +6,7 @@ import { colors } from '@/theme';
 import { useResponsibilitiesStore } from '@/store/responsibilities';
 import { ModernCalendar } from '@/components/ModernCalendar';
 import { Responsibility } from '@/types';
-import { getUpcomingCalendarEvents, requestCalendarPermissions } from '@/services/calendar';
+import { getUpcomingCalendarEvents, requestCalendarPermissions, getCalendarEvents } from '@/services/calendar';
 import * as Calendar from 'expo-calendar';
 
 export default function PlanScreen() {

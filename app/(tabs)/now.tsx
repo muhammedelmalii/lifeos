@@ -2,22 +2,20 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { colors, spacing, typography, shadows } from '@/theme';
-import { Card, Button, Icon, useToast } from '@/components/ui';
+import { colors, spacing, typography } from '@/theme';
+import { Button } from '@/components/ui';
 import { useResponsibilitiesStore } from '@/store/responsibilities';
 import { useListsStore } from '@/store/lists';
-import { formatTime, formatDateTime, getRelativeTime } from '@/utils/date';
+import { formatTime } from '@/utils/date';
 import { hapticFeedback } from '@/utils/haptics';
-import { AnimatedCard } from '@/components/ui';
 import { getUpcomingCalendarEvents, requestCalendarPermissions } from '@/services/calendar';
 import * as Calendar from 'expo-calendar';
-import { addHours, isAfter, isBefore, startOfDay, differenceInHours, differenceInMinutes } from 'date-fns';
+import { addHours, startOfDay, differenceInHours, differenceInMinutes } from 'date-fns';
 
 export default function NowModeScreen() {
   const router = useRouter();
   const { getNowMode, updateResponsibility, loadResponsibilities } = useResponsibilitiesStore();
   const { lists, loadLists } = useListsStore();
-  const { showToast } = useToast();
   
   const [calendarEvents, setCalendarEvents] = useState<Calendar.Event[]>([]);
   const [upcomingTasks, setUpcomingTasks] = useState<any[]>([]);
@@ -29,7 +27,6 @@ export default function NowModeScreen() {
     loadLists();
     loadCalendarEvents();
     
-    // Refresh every minute
     const interval = setInterval(() => {
       loadResponsibilities();
       loadCalendarEvents();
@@ -43,7 +40,6 @@ export default function NowModeScreen() {
       const hasPermission = await requestCalendarPermissions();
       if (hasPermission) {
         const events = await getUpcomingCalendarEvents();
-        // Filter events for today and tomorrow
         const now = new Date();
         const tomorrow = addHours(startOfDay(now), 48);
         const relevantEvents = events.filter(e => {
@@ -58,7 +54,6 @@ export default function NowModeScreen() {
     }
   };
 
-  // Get tasks that are coming up soon (next 2 hours)
   useEffect(() => {
     const now = new Date();
     const twoHoursLater = addHours(now, 2);
@@ -82,31 +77,24 @@ export default function NowModeScreen() {
     hapticFeedback.success();
     await updateResponsibility(id, { status: 'completed', completedAt: new Date() });
     await loadResponsibilities();
-    showToast('Tamamlandı!', 'success');
   };
 
-  const handleStartTask = (id: string) => {
-    hapticFeedback.medium();
-    router.push(`/responsibility/${id}`);
+  const getTimeUntil = (date: Date): string => {
+    const now = new Date();
+    const minutes = differenceInMinutes(date, now);
+    if (minutes < 60) {
+      return `${minutes} dk`;
+    }
+    const hours = differenceInHours(date, now);
+    return `${hours} saat`;
   };
 
-  // Get shopping list
   const shoppingList = lists.find(l => 
     l.name.toLowerCase().includes('shopping') || 
     l.name.toLowerCase().includes('market') || 
     l.name.toLowerCase().includes('grocery') ||
     l.name.toLowerCase().includes('alışveriş')
   );
-
-  const getTimeUntil = (date: Date): string => {
-    const now = new Date();
-    const minutes = differenceInMinutes(date, now);
-    if (minutes < 60) {
-      return `${minutes} dakika`;
-    }
-    const hours = differenceInHours(date, now);
-    return `${hours} saat`;
-  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -115,166 +103,109 @@ export default function NowModeScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Şimdi Ne Yapabilirim?</Text>
-          <Text style={styles.subtitle}>
-            {nowModeItems.length > 0 
-              ? `${nowModeItems.length} görev şu anda yapılabilir`
-              : 'Şu anda yapabileceğin bir şey yok'}
-          </Text>
-        </View>
+        <Text style={styles.title}>Şimdi Ne Yapabilirim?</Text>
 
-        {/* Upcoming Calendar Events - Proactive */}
+        {/* Upcoming Calendar Events */}
         {calendarEvents.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Yaklaşan Randevular</Text>
             {calendarEvents.slice(0, 3).map((event, index) => {
               if (!event.startDate) return null;
               const eventDate = new Date(event.startDate);
               const timeUntil = getTimeUntil(eventDate);
               
               return (
-                <AnimatedCard key={event.id || index} delay={index * 50} style={styles.eventCard}>
-                  <View style={styles.eventHeader}>
-                    <Icon name="calendarIcon" size={20} color={colors.accent.primary} />
-                    <View style={styles.eventInfo}>
-                      <Text style={styles.eventTitle}>{event.title}</Text>
-                      <Text style={styles.eventTime}>
-                        {formatTime(eventDate)} • {timeUntil} sonra
-                      </Text>
-                    </View>
+                <TouchableOpacity key={event.id || index} style={styles.itemCard}>
+                  <View style={styles.itemHeader}>
+                    <Text style={styles.itemTime}>{formatTime(eventDate)}</Text>
+                    <Text style={styles.itemTimeUntil}>{timeUntil} sonra</Text>
                   </View>
-                  {event.notes && (
-                    <Text style={styles.eventNotes} numberOfLines={2}>
-                      {event.notes}
-                    </Text>
-                  )}
-                </AnimatedCard>
+                  <Text style={styles.itemTitle}>{event.title}</Text>
+                </TouchableOpacity>
               );
             })}
           </View>
         )}
 
-        {/* Upcoming Tasks - Next 2 Hours */}
+        {/* Upcoming Tasks */}
         {upcomingTasks.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Yaklaşan Görevler (2 saat içinde)</Text>
-            {upcomingTasks.map((task, index) => (
-              <AnimatedCard key={task.id} delay={index * 50} style={styles.taskCard}>
-                <View style={styles.taskHeader}>
-                  <View style={styles.taskInfo}>
-                    <Text style={styles.taskTitle}>{task.title}</Text>
-                    {task.schedule?.datetime && (
-                      <Text style={styles.taskTime}>
-                        {formatTime(task.schedule.datetime)} • {getTimeUntil(task.schedule.datetime)} sonra
-                      </Text>
-                    )}
-                  </View>
+            <Text style={styles.sectionTitle}>Yaklaşan (2 saat)</Text>
+            {upcomingTasks.map((task) => (
+              <TouchableOpacity
+                key={task.id}
+                style={styles.itemCard}
+                onPress={() => router.push(`/responsibility/${task.id}`)}
+              >
+                <View style={styles.itemHeader}>
+                  <Text style={styles.itemTime}>
+                    {task.schedule?.datetime ? formatTime(task.schedule.datetime) : ''}
+                  </Text>
+                  {task.schedule?.datetime && (
+                    <Text style={styles.itemTimeUntil}>{getTimeUntil(task.schedule.datetime)} sonra</Text>
+                  )}
                 </View>
-                <View style={styles.taskActions}>
-                  <Button
-                    title="Başla"
-                    onPress={() => handleStartTask(task.id)}
-                    size="small"
-                    variant="primary"
-                    style={styles.actionButton}
-                  />
-                  <Button
-                    title="Tamamla"
-                    onPress={() => handleComplete(task.id)}
-                    size="small"
-                    variant="secondary"
-                    style={styles.actionButton}
-                  />
-                </View>
-              </AnimatedCard>
+                <Text style={styles.itemTitle}>{task.title}</Text>
+                <TouchableOpacity
+                  style={styles.completeButton}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleComplete(task.id);
+                  }}
+                >
+                  <Text style={styles.completeButtonText}>✓ Tamamla</Text>
+                </TouchableOpacity>
+              </TouchableOpacity>
             ))}
           </View>
         )}
 
-        {/* Shopping List Quick Access */}
+        {/* Shopping List */}
         {shoppingList && shoppingList.items.filter(i => !i.checked).length > 0 && (
           <View style={styles.section}>
-            <Card style={styles.shoppingCard}>
-              <TouchableOpacity 
-                onPress={() => {
-                  hapticFeedback.selection();
-                  router.push('/(tabs)/lists');
-                }}
-                activeOpacity={0.7}
-              >
-                <View style={styles.shoppingHeader}>
-                  <Icon name="shoppingCart" size={24} color={colors.accent.primary} />
-                  <View style={styles.shoppingInfo}>
-                    <Text style={styles.shoppingTitle}>{shoppingList.name}</Text>
-                    <Text style={styles.shoppingCount}>
-                      {shoppingList.items.filter(i => !i.checked).length} öğe kaldı
-                    </Text>
-                  </View>
-                  <Icon name="chevronRight" size={20} color={colors.text.tertiary} />
-                </View>
-              </TouchableOpacity>
-            </Card>
+            <TouchableOpacity 
+              style={styles.itemCard}
+              onPress={() => router.push('/(tabs)/lists')}
+            >
+              <Text style={styles.itemTitle}>🛒 {shoppingList.name}</Text>
+              <Text style={styles.itemSubtitle}>
+                {shoppingList.items.filter(i => !i.checked).length} öğe kaldı
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
 
-        {/* Now Mode Items - Low Energy Tasks */}
+        {/* Now Mode Items */}
         {nowModeItems.length > 0 ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Şimdi Yapabileceklerin</Text>
-            {nowModeItems.slice(0, 5).map((item, index) => (
-              <AnimatedCard key={item.id} delay={index * 50} style={styles.taskCard}>
-                <View style={styles.taskHeader}>
-                  <View style={styles.taskInfo}>
-                    <Text style={styles.taskTitle}>{item.title}</Text>
-                    {item.description && (
-                      <Text style={styles.taskDescription} numberOfLines={2}>
-                        {item.description}
-                      </Text>
-                    )}
-                    {item.schedule?.datetime && (
-                      <Text style={styles.taskTime}>
-                        {formatTime(item.schedule.datetime)}
-                      </Text>
-                    )}
-                  </View>
-                </View>
-                <View style={styles.taskActions}>
-                  <Button
-                    title="Başla"
-                    onPress={() => handleStartTask(item.id)}
-                    size="small"
-                    variant="primary"
-                    style={styles.actionButton}
-                  />
-                  <Button
-                    title="Tamamla"
-                    onPress={() => handleComplete(item.id)}
-                    size="small"
-                    variant="secondary"
-                    style={styles.actionButton}
-                  />
-                </View>
-              </AnimatedCard>
+            <Text style={styles.sectionTitle}>Şimdi Yapılabilir</Text>
+            {nowModeItems.slice(0, 5).map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.itemCard}
+                onPress={() => router.push(`/responsibility/${item.id}`)}
+              >
+                <Text style={styles.itemTitle}>{item.title}</Text>
+                {item.description && (
+                  <Text style={styles.itemSubtitle} numberOfLines={2}>
+                    {item.description}
+                  </Text>
+                )}
+                <TouchableOpacity
+                  style={styles.completeButton}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleComplete(item.id);
+                  }}
+                >
+                  <Text style={styles.completeButtonText}>✓ Tamamla</Text>
+                </TouchableOpacity>
+              </TouchableOpacity>
             ))}
           </View>
         ) : (
           <View style={styles.emptyState}>
-            <Icon name="checkCircle" size={64} color={colors.text.tertiary} />
-            <Text style={styles.emptyTitle}>Şu anda yapabileceğin bir şey yok</Text>
-            <Text style={styles.emptySubtitle}>
-              Dinlenmek de üretkendir. Yaklaşan görevlerin için takvime bak.
-            </Text>
-            <Button
-              title="Takvime Git"
-              onPress={() => {
-                hapticFeedback.medium();
-                router.push('/(tabs)/plan');
-              }}
-              variant="secondary"
-              style={styles.emptyButton}
-            />
+            <Text style={styles.emptyText}>Şu anda yapabileceğin bir şey yok</Text>
+            <Text style={styles.emptySubtext}>Dinlenmek de üretkendir ✨</Text>
           </View>
         )}
       </ScrollView>
@@ -293,145 +224,89 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.lg,
   },
-  header: {
-    marginBottom: spacing.xl,
-  },
   title: {
     ...typography.h1,
-    fontSize: 32,
+    fontSize: 28,
     color: colors.text.primary,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.xl,
     fontWeight: '700',
-  },
-  subtitle: {
-    ...typography.body,
-    color: colors.text.secondary,
-    fontSize: 16,
   },
   section: {
     marginBottom: spacing.xl,
   },
   sectionTitle: {
     ...typography.h3,
-    color: colors.text.primary,
-    fontWeight: '700',
+    color: colors.text.secondary,
+    fontSize: 14,
     marginBottom: spacing.md,
-    fontSize: 18,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  eventCard: {
-    padding: spacing.md,
+  itemCard: {
     backgroundColor: colors.background.secondary,
     borderRadius: 12,
+    padding: spacing.md,
     marginBottom: spacing.sm,
-    ...shadows.sm,
+    borderWidth: 1,
+    borderColor: colors.border.primary,
   },
-  eventHeader: {
+  itemHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: spacing.md,
     marginBottom: spacing.xs,
   },
-  eventInfo: {
-    flex: 1,
-  },
-  eventTitle: {
-    ...typography.body,
-    color: colors.text.primary,
-    fontWeight: '600',
-    marginBottom: spacing.xs / 2,
-  },
-  eventTime: {
+  itemTime: {
     ...typography.caption,
     color: colors.text.tertiary,
     fontSize: 12,
   },
-  eventNotes: {
-    ...typography.bodySmall,
-    color: colors.text.secondary,
-    marginTop: spacing.xs,
+  itemTimeUntil: {
+    ...typography.caption,
+    color: colors.accent.primary,
+    fontSize: 12,
+    fontWeight: '600',
   },
-  taskCard: {
-    padding: spacing.md,
-    backgroundColor: colors.background.secondary,
-    borderRadius: 12,
-    marginBottom: spacing.sm,
-    ...shadows.sm,
-  },
-  taskHeader: {
-    marginBottom: spacing.sm,
-  },
-  taskInfo: {
-    gap: spacing.xs / 2,
-  },
-  taskTitle: {
+  itemTitle: {
     ...typography.body,
     color: colors.text.primary,
-    fontWeight: '600',
     fontSize: 16,
+    fontWeight: '600',
+    marginBottom: spacing.xs / 2,
   },
-  taskDescription: {
+  itemSubtitle: {
     ...typography.bodySmall,
     color: colors.text.secondary,
     fontSize: 13,
+    marginBottom: spacing.sm,
   },
-  taskTime: {
+  completeButton: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.accent.primary,
+    borderRadius: 8,
+    marginTop: spacing.xs,
+  },
+  completeButtonText: {
     ...typography.caption,
-    color: colors.text.tertiary,
+    color: colors.background.primary,
     fontSize: 12,
-    marginTop: spacing.xs / 2,
-  },
-  taskActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  actionButton: {
-    flex: 1,
-  },
-  shoppingCard: {
-    padding: spacing.md,
-    backgroundColor: colors.background.secondary,
-    ...shadows.sm,
-  },
-  shoppingHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  shoppingInfo: {
-    flex: 1,
-  },
-  shoppingTitle: {
-    ...typography.body,
-    color: colors.text.primary,
     fontWeight: '600',
-    marginBottom: spacing.xs / 2,
-  },
-  shoppingCount: {
-    ...typography.caption,
-    color: colors.text.tertiary,
-    fontSize: 12,
   },
   emptyState: {
     alignItems: 'center',
-    justifyContent: 'center',
     paddingVertical: spacing.xl * 2,
   },
-  emptyTitle: {
+  emptyText: {
     ...typography.h3,
     color: colors.text.primary,
-    marginTop: spacing.md,
     marginBottom: spacing.xs,
     fontWeight: '600',
   },
-  emptySubtitle: {
+  emptySubtext: {
     ...typography.body,
     color: colors.text.secondary,
-    textAlign: 'center',
-    marginBottom: spacing.lg,
-    paddingHorizontal: spacing.lg,
-  },
-  emptyButton: {
-    minWidth: 150,
   },
 });
