@@ -79,3 +79,55 @@ export const deleteCalendarEvent = async (eventId: string): Promise<void> => {
   }
 };
 
+/**
+ * Get calendar events for a date range
+ * This allows the app to show existing calendar appointments
+ */
+export const getCalendarEvents = async (
+  startDate: Date,
+  endDate: Date
+): Promise<Calendar.Event[]> => {
+  try {
+    const { status } = await Calendar.getCalendarPermissionsAsync();
+    if (status !== 'granted') {
+      return [];
+    }
+
+    const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
+    if (calendars.length === 0) {
+      return [];
+    }
+
+    const allEvents: Calendar.Event[] = [];
+    
+    for (const cal of calendars) {
+      try {
+        const events = await Calendar.getEventsAsync(
+          [cal.id],
+          startDate,
+          endDate
+        );
+        allEvents.push(...events);
+      } catch (error) {
+        console.error(`Failed to get events from calendar ${cal.title}:`, error);
+      }
+    }
+
+    return allEvents.sort((a, b) => 
+      (a.startDate?.getTime() || 0) - (b.startDate?.getTime() || 0)
+    );
+  } catch (error) {
+    console.error('Failed to get calendar events:', error);
+    return [];
+  }
+};
+
+/**
+ * Get upcoming calendar events (next 7 days)
+ */
+export const getUpcomingCalendarEvents = async (): Promise<Calendar.Event[]> => {
+  const now = new Date();
+  const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  return getCalendarEvents(now, nextWeek);
+};
+

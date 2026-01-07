@@ -6,9 +6,11 @@
 import { Responsibility } from '@/types';
 import { useResponsibilitiesStore } from '@/store/responsibilities';
 import { useSettingsStore } from '@/store/settings';
-import { format, addHours, addDays, startOfDay, isAfter, isBefore, getHours } from 'date-fns';
+import { format, addHours, addDays, startOfDay, isAfter, isBefore, getHours, differenceInHours, differenceInMinutes } from 'date-fns';
 import * as Notifications from 'expo-notifications';
 import { smartNotificationsService } from './smartNotifications';
+import { getUpcomingCalendarEvents, requestCalendarPermissions } from './calendar';
+import * as Calendar from 'expo-calendar';
 
 export interface ProactiveAction {
   type: 'reminder' | 'reschedule' | 'break' | 'prepare' | 'suggest' | 'warn';
@@ -26,32 +28,118 @@ class ProactiveHelpService {
    * Check for proactive actions needed
    * Runs periodically to help users
    */
-  async checkAndHelp(): Promise<ProactiveAction[]> {
+  async getSuggestions(): Promise<ProactiveAction[]> {
     const now = new Date();
     const actions: ProactiveAction[] = [];
 
-    // 1. Check for upcoming critical tasks (prepare user)
+    // 1. Check for upcoming calendar events (proactive preparation)
+    actions.push(...await this.prepareForCalendarEvents());
+
+    // 2. Check for upcoming critical tasks (prepare user)
     actions.push(...await this.prepareForUpcoming());
 
-    // 2. Check for overloaded days (suggest breaks)
+    // 3. Check for overloaded days (suggest breaks)
     actions.push(...await this.suggestBreaks());
 
-    // 3. Check for missed patterns (gentle reminders)
+    // 4. Check for missed patterns (gentle reminders)
     actions.push(...await this.gentleReminders());
 
-    // 4. Check for optimal rescheduling opportunities
+    // 5. Check for optimal rescheduling opportunities
     actions.push(...await this.suggestOptimalReschedules());
 
-    // 5. Check for preparation needs (tomorrow's tasks)
+    // 6. Check for preparation needs (tomorrow's tasks)
     actions.push(...await this.prepareForTomorrow());
 
-    // 6. Check for energy mismatches
+    // 7. Check for energy mismatches
     actions.push(...await this.fixEnergyMismatches());
 
-    // 7. Check for habit maintenance
+    // 8. Check for habit maintenance
     actions.push(...await this.maintainHabits());
 
     this.lastCheck = now;
+    return actions;
+  }
+
+  /**
+   * Legacy method for backward compatibility
+   */
+  async checkAndHelp(): Promise<ProactiveAction[]> {
+    return this.getSuggestions();
+  }
+
+  /**
+   * Prepare user for upcoming calendar events
+   * This is the KEY feature - proactive help based on calendar
+   */
+  private async prepareForCalendarEvents(): Promise<ProactiveAction[]> {
+    const actions: ProactiveAction[] = [];
+    
+    try {
+      const hasPermission = await requestCalendarPermissions();
+      if (!hasPermission) {
+        return actions;
+      }
+
+      const events = await getUpcomingCalendarEvents();
+      const now = new Date();
+      const next48Hours = addHours(now, 48);
+
+      for (const event of events) {
+        if (!event.startDate) continue;
+        
+        const eventDate = new Date(event.startDate);
+        if (eventDate < now || eventDate > next48Hours) continue;
+
+        const hoursUntil = differenceInHours(eventDate, now);
+        const minutesUntil = differenceInMinutes(eventDate, now);
+
+        // Remind 2 hours before
+        if (hoursUntil <= 2 && hoursUntil > 1.5) {
+          const timeText = hoursUntil < 1 
+            ? `${minutesUntil} dakika` 
+            : `${Math.round(hoursUntil)} saat`;
+          
+          actions.push({
+            type: 'prepare',
+            title: 'Yaklaşan Randevu',
+            message: `"${event.title}" için ${timeText} kaldı. Hazırlık yapmak ister misin?`,
+            priority: 'high',
+            autoExecute: false,
+            action: async () => {
+              console.log(`Preparing for calendar event: ${event.title}`);
+            },
+          });
+        }
+
+        // Remind 30 minutes before
+        if (minutesUntil <= 30 && minutesUntil > 15) {
+          actions.push({
+            type: 'reminder',
+            title: 'Randevu Yaklaşıyor',
+            message: `"${event.title}" için ${minutesUntil} dakika kaldı.`,
+            priority: 'high',
+            autoExecute: false,
+          });
+        }
+
+        // Remind for tomorrow's events (evening before)
+        if (hoursUntil > 12 && hoursUntil <= 24) {
+          const currentHour = getHours(now);
+          if (currentHour >= 18 && currentHour < 22) {
+            actions.push({
+              type: 'prepare',
+              title: 'Yarın Randevun Var',
+              message: `Yarın saat ${format(eventDate, 'HH:mm')}'de "${event.title}" var. Hazırlık yapmak ister misin?`,
+              priority: 'medium',
+              autoExecute: false,
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to prepare for calendar events:', error);
+    }
+
     return actions;
   }
 

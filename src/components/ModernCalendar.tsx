@@ -17,6 +17,9 @@ import { Icon } from '@/components/ui';
 import { format, startOfWeek, startOfDay, addDays, isSameDay, isToday, isTomorrow, isYesterday, getMonth, getYear, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { Responsibility } from '@/types';
 import { formatTime, formatDate } from '@/utils/date';
+import { hapticFeedback } from '@/utils/haptics';
+import { getCalendarEvents } from '@/services/calendar';
+import * as Calendar from 'expo-calendar';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -25,6 +28,7 @@ interface ModernCalendarProps {
   onDateSelect?: (date: Date) => void;
   onResponsibilityPress?: (responsibility: Responsibility) => void;
   initialDate?: Date;
+  calendarEvents?: Calendar.Event[];
 }
 
 export const ModernCalendar: React.FC<ModernCalendarProps> = ({
@@ -32,6 +36,7 @@ export const ModernCalendar: React.FC<ModernCalendarProps> = ({
   onDateSelect,
   onResponsibilityPress,
   initialDate = new Date(),
+  calendarEvents = [],
 }) => {
   const [currentMonth, setCurrentMonth] = useState(initialDate);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -54,6 +59,23 @@ export const ModernCalendar: React.FC<ModernCalendarProps> = ({
       .sort((a, b) => {
         if (!a.schedule?.datetime || !b.schedule?.datetime) return 0;
         return a.schedule.datetime.getTime() - b.schedule.datetime.getTime();
+      });
+  };
+
+  // Get calendar events for a specific day
+  const getCalendarEventsForDay = (date: Date): Calendar.Event[] => {
+    const dayStart = startOfDay(date);
+    const dayEnd = addDays(dayStart, 1);
+    
+    return calendarEvents
+      .filter((e) => {
+        if (!e.startDate) return false;
+        const eventDate = new Date(e.startDate);
+        return eventDate >= dayStart && eventDate < dayEnd;
+      })
+      .sort((a, b) => {
+        if (!a.startDate || !b.startDate) return 0;
+        return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
       });
   };
 
@@ -172,53 +194,95 @@ export const ModernCalendar: React.FC<ModernCalendarProps> = ({
         })}
       </View>
 
-      {/* Selected Day Responsibilities */}
+      {/* Selected Day Responsibilities & Calendar Events */}
       {selectedDate && (
         <View style={styles.selectedDaySection}>
           <Text style={styles.selectedDayTitle}>
             {isToday(selectedDate) ? 'Bugün' : isTomorrow(selectedDate) ? 'Yarın' : formatDate(selectedDate)}
           </Text>
           <ScrollView style={styles.responsibilitiesList} showsVerticalScrollIndicator={false}>
-            {selectedDayResponsibilities.length > 0 ? (
-              selectedDayResponsibilities.map((responsibility) => (
-                  <TouchableOpacity
-                    key={responsibility.id}
-                    style={styles.responsibilityCard}
-                    onPress={() => {
-                      hapticFeedback.medium();
-                      onResponsibilityPress?.(responsibility);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                  <View style={styles.responsibilityHeader}>
-                    <View style={[
-                      styles.responsibilityIndicator,
-                      responsibility.reminderStyle === 'critical' && styles.responsibilityIndicatorCritical,
-                      responsibility.reminderStyle === 'persistent' && styles.responsibilityIndicatorPersistent,
-                    ]} />
-                    <Text style={styles.responsibilityTime}>
-                      {responsibility.schedule?.datetime ? formatTime(responsibility.schedule.datetime) : ''}
-                    </Text>
+            {(() => {
+              const dayEvents = getCalendarEventsForDay(selectedDate);
+              const allItems = [
+                ...selectedDayResponsibilities.map(r => ({ type: 'responsibility' as const, data: r })),
+                ...dayEvents.map(e => ({ type: 'event' as const, data: e })),
+              ].sort((a, b) => {
+                const aTime = a.type === 'responsibility' 
+                  ? a.data.schedule?.datetime?.getTime() || 0
+                  : new Date(a.data.startDate || 0).getTime();
+                const bTime = b.type === 'responsibility'
+                  ? b.data.schedule?.datetime?.getTime() || 0
+                  : new Date(b.data.startDate || 0).getTime();
+                return aTime - bTime;
+              });
+
+              if (allItems.length > 0) {
+                return allItems.map((item, index) => {
+                  if (item.type === 'responsibility') {
+                    const responsibility = item.data;
+                    return (
+                      <TouchableOpacity
+                        key={responsibility.id}
+                        style={styles.responsibilityCard}
+                        onPress={() => {
+                          hapticFeedback.medium();
+                          onResponsibilityPress?.(responsibility);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.responsibilityHeader}>
+                          <View style={[
+                            styles.responsibilityIndicator,
+                            responsibility.reminderStyle === 'critical' && styles.responsibilityIndicatorCritical,
+                            responsibility.reminderStyle === 'persistent' && styles.responsibilityIndicatorPersistent,
+                          ]} />
+                          <Text style={styles.responsibilityTime}>
+                            {responsibility.schedule?.datetime ? formatTime(responsibility.schedule.datetime) : ''}
+                          </Text>
+                        </View>
+                        <Text style={styles.responsibilityTitle}>{responsibility.title}</Text>
+                        {responsibility.description && (
+                          <Text style={styles.responsibilityDescription} numberOfLines={2}>
+                            {responsibility.description}
+                          </Text>
+                        )}
+                        {responsibility.category && (
+                          <View style={styles.responsibilityCategory}>
+                            <Text style={styles.responsibilityCategoryText}>{responsibility.category}</Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  } else {
+                    const event = item.data;
+                    if (!event.startDate) return null;
+                    return (
+                      <View key={event.id || index} style={[styles.responsibilityCard, styles.eventCard]}>
+                        <View style={styles.responsibilityHeader}>
+                          <View style={[styles.responsibilityIndicator, { backgroundColor: colors.accent.primary }]} />
+                          <Text style={styles.responsibilityTime}>
+                            {formatTime(new Date(event.startDate))}
+                          </Text>
+                        </View>
+                        <Text style={styles.responsibilityTitle}>{event.title}</Text>
+                        {event.notes && (
+                          <Text style={styles.responsibilityDescription} numberOfLines={2}>
+                            {event.notes}
+                          </Text>
+                        )}
+                      </View>
+                    );
+                  }
+                });
+              } else {
+                return (
+                  <View style={styles.emptyState}>
+                    <Icon name="calendarIcon" size={48} color={colors.text.tertiary} />
+                    <Text style={styles.emptyText}>Bu gün için görev veya randevu yok</Text>
                   </View>
-                  <Text style={styles.responsibilityTitle}>{responsibility.title}</Text>
-                  {responsibility.description && (
-                    <Text style={styles.responsibilityDescription} numberOfLines={2}>
-                      {responsibility.description}
-                    </Text>
-                  )}
-                  {responsibility.category && (
-                    <View style={styles.responsibilityCategory}>
-                      <Text style={styles.responsibilityCategoryText}>{responsibility.category}</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              ))
-            ) : (
-              <View style={styles.emptyState}>
-                <Icon name="calendarIcon" size={48} color={colors.text.tertiary} />
-                <Text style={styles.emptyText}>Bu gün için görev yok</Text>
-              </View>
-            )}
+                );
+              }
+            })()}
           </ScrollView>
         </View>
       )}
@@ -424,6 +488,10 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.text.tertiary,
     marginTop: spacing.md,
+  },
+  eventCard: {
+    borderLeftWidth: 3,
+    borderLeftColor: colors.accent.primary,
   },
 });
 
