@@ -39,7 +39,14 @@ export const ModernCalendar: React.FC<ModernCalendarProps> = ({
   calendarEvents = [],
 }) => {
   const [currentMonth, setCurrentMonth] = useState(initialDate);
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(initialDate);
+  
+  // Auto-select today on mount
+  useEffect(() => {
+    const today = new Date();
+    setSelectedDate(today);
+    onDateSelect?.(today);
+  }, []);
 
   // Get responsibilities for a specific day
   const getResponsibilitiesForDay = (date: Date): Responsibility[] => {

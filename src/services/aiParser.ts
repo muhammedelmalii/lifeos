@@ -1,5 +1,6 @@
 import { Responsibility, EnergyLevel, ReminderStyle, Schedule, CreatedFrom } from '@/types';
 import { addDays, addHours, setHours, setMinutes, startOfDay } from 'date-fns';
+import { parseTurkishDate, hasSpecificDate } from '@/utils/turkishDateParser';
 
 export interface ParsedCommand {
   title?: string; // Optional - can be empty for list-only commands
@@ -288,9 +289,27 @@ NOTES:
 BILLS/PAYMENTS:
 11. Bill/fatura related commands will be handled separately via OCR processing
 
+CRITICAL DATE/TIME PARSING RULES:
+- ALWAYS parse dates accurately. If user says "11 nisan" (April 11), use that EXACT date, NOT tomorrow!
+- Turkish month names: ocak (January), şubat (February), mart (March), nisan (April), mayıs (May), haziran (June), temmuz (July), ağustos (August), eylül (September), ekim (October), kasım (November), aralık (December)
+- Date formats to understand:
+  * "11 nisan" / "11 Nisan" → April 11 of current year, default time 10:00 AM
+  * "11 nisan 2024" / "11 Nisan 2024" → April 11, 2024
+  * "11/04" / "11.04" → April 11 of current year
+  * "11/04/2024" / "11.04.2024" → April 11, 2024
+  * "yarın" / "tomorrow" → next day
+  * "bugün" / "today" → today
+  * "gelecek hafta" / "next week" → 7 days from now
+  * "pazartesi" / "monday" → next Monday
+- If year is not specified, use current year
+- If time is not specified, use 10:00 AM as default
+- Return datetime in ISO 8601 format (e.g., "2024-04-11T10:00:00.000Z")
+- DO NOT automatically change dates to tomorrow if they seem "in the past" - use the EXACT date the user specified
+- Only adjust dates if they are clearly relative (like "tomorrow", "next week")
+
 Be smart about:
 - Understanding context and intent
-- Extracting dates/times (support relative: "tomorrow", "in 2 hours", "next Monday", "next week")
+- Extracting dates/times accurately (support: "11 nisan", "yarın saat 14:00", "gelecek pazartesi", "in 2 hours")
 - Detecting urgency and importance
 - Identifying recurring patterns
 - Understanding energy requirements from context
@@ -326,7 +345,22 @@ Return ONLY valid JSON, no markdown formatting.`,
 
     // Convert ISO datetime string to Date object
     if (parsed.schedule?.datetime) {
-      const dateObj = new Date(parsed.schedule.datetime);
+      let dateObj: Date;
+      
+      // Handle both string and Date object
+      if (typeof parsed.schedule.datetime === 'string') {
+        dateObj = new Date(parsed.schedule.datetime);
+      } else if (parsed.schedule.datetime instanceof Date) {
+        dateObj = parsed.schedule.datetime;
+      } else {
+        // Invalid format, set to default (tomorrow at 10 AM)
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(10, 0, 0, 0);
+        parsed.schedule.datetime = tomorrow;
+        return parsed as ParsedCommand;
+      }
+      
       const now = new Date();
       
       // Validate the date
@@ -337,17 +371,35 @@ Return ONLY valid JSON, no markdown formatting.`,
         tomorrow.setHours(10, 0, 0, 0);
         parsed.schedule.datetime = tomorrow;
       } else {
-        // Ensure date is in the future
-        if (dateObj < now) {
-          // Move to tomorrow at same time, or tomorrow 10 AM if time is in the past
-          const tomorrow = new Date();
-          tomorrow.setDate(tomorrow.getDate() + 1);
-          tomorrow.setHours(dateObj.getHours(), dateObj.getMinutes(), 0, 0);
-          if (tomorrow < now) {
-            tomorrow.setHours(10, 0, 0, 0);
+        // Check if the date is significantly in the past (more than 1 day)
+        // Only adjust if it's clearly a mistake, not if user specified a specific date
+        const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        
+        // If date is more than 1 day in the past, it might be a parsing error
+        // But if it's within the last day, it might be user's intended time for today
+        if (dateObj < oneDayAgo) {
+          // Date is significantly in the past - might be a parsing error
+          // Check if original text contains a specific date (like "11 nisan")
+          const hasSpecificDate = /(\d{1,2})\s*(ocak|şubat|mart|nisan|mayıs|haziran|temmuz|ağustos|eylül|ekim|kasım|aralık|january|february|march|april|may|june|july|august|september|october|november|december)/i.test(text);
+          
+          if (hasSpecificDate) {
+            // User specified a specific date - trust it, but if it's in the past, move to next year
+            const nextYear = new Date(dateObj);
+            nextYear.setFullYear(nextYear.getFullYear() + 1);
+            parsed.schedule.datetime = nextYear;
+          } else {
+            // No specific date mentioned, likely a relative date that was parsed wrong
+            // Move to tomorrow at same time
+            const tomorrow = new Date(dateObj);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            if (tomorrow < now) {
+              tomorrow.setHours(10, 0, 0, 0);
+              tomorrow.setDate(tomorrow.getDate() + 1);
+            }
+            parsed.schedule.datetime = tomorrow;
           }
-          parsed.schedule.datetime = tomorrow;
         } else {
+          // Date is valid (today, tomorrow, or near future) - use as is
           parsed.schedule.datetime = dateObj;
         }
       }

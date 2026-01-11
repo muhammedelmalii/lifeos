@@ -8,6 +8,7 @@ import { ModernCalendar } from '@/components/ModernCalendar';
 import { Responsibility } from '@/types';
 import { getUpcomingCalendarEvents, requestCalendarPermissions, getCalendarEvents } from '@/services/calendar';
 import * as Calendar from 'expo-calendar';
+import { hapticFeedback } from '@/utils/haptics';
 
 export default function PlanScreen() {
   const router = useRouter();
@@ -44,8 +45,8 @@ export default function PlanScreen() {
   };
 
   const handleDateSelect = (date: Date) => {
-    // Tarih seçildiğinde yapılacak işlemler
-    console.log('Selected date:', date);
+    // Date selected - already handled by ModernCalendar
+    hapticFeedback.selection();
   };
 
   const handleResponsibilityPress = (responsibility: Responsibility) => {
