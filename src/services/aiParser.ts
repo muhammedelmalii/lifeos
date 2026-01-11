@@ -41,17 +41,24 @@ export const parseCommand = async (
   let schedule: Schedule | undefined;
   const now = new Date();
   
-  // Tomorrow patterns
-  if (lowerText.includes('tomorrow')) {
-    const timeMatch = lowerText.match(/tomorrow(?: at | )(\d{1,2})(?::(\d{2}))?(?:\s*(am|pm))?/i);
+  // Tomorrow patterns (English and Turkish)
+  if (lowerText.includes('tomorrow') || lowerText.includes('yarın')) {
+    // Match time patterns: "tomorrow at 14:00", "yarın saat 14:00", "yarın 14:00"
+    const timeMatch = lowerText.match(/(?:tomorrow|yarın)(?:\s+(?:at|saat)?\s*)?(\d{1,2})(?::(\d{2}))?(?:\s*(am|pm|öö|ös))?/i);
     const tomorrow = addDays(startOfDay(now), 1);
     if (timeMatch) {
       let hours = parseInt(timeMatch[1], 10);
       const minutes = timeMatch[2] ? parseInt(timeMatch[2], 10) : 0;
       const period = timeMatch[3]?.toLowerCase();
       
-      if (period === 'pm' && hours !== 12) hours += 12;
-      if (period === 'am' && hours === 12) hours = 0;
+      // Handle 24-hour format (Turkish often uses 24-hour)
+      if (!period && hours >= 0 && hours <= 23) {
+        // Already in 24-hour format, use as is
+      } else if (period === 'pm' || period === 'ös') {
+        if (hours !== 12) hours += 12;
+      } else if (period === 'am' || period === 'öö') {
+        if (hours === 12) hours = 0;
+      }
       
       tomorrow.setHours(hours, minutes, 0, 0);
     } else {
@@ -63,8 +70,8 @@ export const parseCommand = async (
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     };
   }
-  // Today patterns
-  else if (lowerText.includes('today')) {
+  // Today patterns (English and Turkish)
+  else if (lowerText.includes('today') || lowerText.includes('bugün')) {
     const timeMatch = lowerText.match(/today(?: at | )(\d{1,2})(?::(\d{2}))?(?:\s*(am|pm))?/i);
     if (timeMatch) {
       let hours = parseInt(timeMatch[1], 10);

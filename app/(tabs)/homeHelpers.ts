@@ -24,29 +24,42 @@ export const handleListOnlyCommand = async (
       return;
     }
 
-    const { loadLists } = useListsStore.getState();
+    // Ensure lists are loaded
+    const { loadLists, lists } = useListsStore.getState();
     await loadLists();
     
     let itemsAdded = 0;
     let listsCreated = 0;
     
     for (const listAction of parsed.listActions) {
+      // Find existing list (case-insensitive)
       const existingList = useListsStore.getState().lists.find(
         l => l.name.toLowerCase() === listAction.listName.toLowerCase()
       );
 
       if (existingList) {
         const { updateList } = useListsStore.getState();
+        
+        // Create new items
         const newItems = listAction.items.map((item: string) => ({
           id: uuidv4(),
-          label: item,
+          label: item.trim(),
           category: '',
           checked: false,
           createdAt: new Date(),
         }));
-        const updatedItems = [...existingList.items, ...newItems];
-        await updateList(existingList.id, { items: updatedItems });
-        itemsAdded += newItems.length;
+        
+        // Merge with existing items (avoid duplicates)
+        const existingLabels = existingList.items.map(i => i.label.toLowerCase());
+        const uniqueNewItems = newItems.filter(
+          item => !existingLabels.includes(item.label.toLowerCase())
+        );
+        
+        if (uniqueNewItems.length > 0) {
+          const updatedItems = [...existingList.items, ...uniqueNewItems];
+          await updateList(existingList.id, { items: updatedItems });
+          itemsAdded += uniqueNewItems.length;
+        }
       } else {
         const { addList } = useListsStore.getState();
         const newList: List = {
@@ -55,7 +68,7 @@ export const handleListOnlyCommand = async (
           type: 'market',
           items: listAction.items.map((item: string) => ({
             id: uuidv4(),
-            label: item,
+            label: item.trim(),
             category: '',
             checked: false,
             createdAt: new Date(),
@@ -69,16 +82,22 @@ export const handleListOnlyCommand = async (
       }
     }
     
+    // Reload lists to ensure UI is updated
+    await loadLists();
+    
     if (itemsAdded > 0) {
       const message = listsCreated > 0 
         ? `${itemsAdded} öğe ${listsCreated} listeye eklendi ✅`
         : `${itemsAdded} öğe listeye eklendi ✅`;
       addMessage('assistant', message);
       showToast(message, 'success');
+    } else {
+      addMessage('assistant', 'Tüm öğeler zaten listede mevcut.');
     }
   } catch (error) {
     console.error('Error in handleListOnlyCommand:', error);
     addMessage('assistant', `Liste işlemi sırasında hata: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`);
+    showToast('Liste güncellenirken hata oluştu', 'error');
   }
 };
 

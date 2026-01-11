@@ -20,8 +20,16 @@ export const createCalendarEvent = async (
   calendarId?: string
 ): Promise<string | null> => {
   try {
+    // Check permissions first
+    const hasPermission = await requestCalendarPermissions();
+    if (!hasPermission) {
+      console.warn('Calendar permissions not granted');
+      return null;
+    }
+
     const calendars = await getCalendars();
     if (calendars.length === 0) {
+      console.warn('No calendars available');
       return null;
     }
 
@@ -30,23 +38,38 @@ export const createCalendarEvent = async (
       : calendars[0];
 
     if (!targetCalendar) {
+      console.warn('Target calendar not found');
       return null;
     }
 
+    // Ensure datetime is a Date object
+    const startDate = responsibility.schedule.datetime instanceof Date
+      ? responsibility.schedule.datetime
+      : new Date(responsibility.schedule.datetime);
+
+    // Calculate end date (default 1 hour, or based on energy level)
+    const durationHours = responsibility.energyRequired === 'high' ? 2 : 
+                         responsibility.energyRequired === 'low' ? 0.5 : 1;
+    const endDate = new Date(startDate.getTime() + durationHours * 60 * 60 * 1000);
+
     const eventId = await Calendar.createEventAsync(targetCalendar.id, {
       title: responsibility.title,
-      notes: responsibility.description,
-      startDate: responsibility.schedule.datetime,
-      endDate: new Date(
-        responsibility.schedule.datetime.getTime() + 60 * 60 * 1000
-      ), // Default 1 hour
-      timeZone: responsibility.schedule.timezone,
-      alarms: responsibility.escalationRules.map((rule) => ({
-        relativeOffset: -rule.offsetMinutes,
-        method: Calendar.AlarmMethod.ALERT,
-      })),
+      notes: responsibility.description || '',
+      startDate: startDate,
+      endDate: endDate,
+      timeZone: responsibility.schedule.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+      alarms: responsibility.escalationRules && responsibility.escalationRules.length > 0
+        ? responsibility.escalationRules.map((rule) => ({
+            relativeOffset: -rule.offsetMinutes,
+            method: Calendar.AlarmMethod.ALERT,
+          }))
+        : [{
+            relativeOffset: -15, // Default 15 minutes before
+            method: Calendar.AlarmMethod.ALERT,
+          }],
     });
 
+    console.log('Calendar event created:', eventId);
     return eventId;
   } catch (error) {
     console.error('Failed to create calendar event:', error);

@@ -69,20 +69,28 @@ export const AIUnderstandingSheet: React.FC<AIUnderstandingSheetProps> = ({
       updatedAt: new Date(),
     };
 
-    // Ensure date is in the future
+    // Ensure date is in the future - but don't override if it's already correct
     if (responsibility.schedule && responsibility.schedule.datetime) {
       const now = new Date();
-      if (responsibility.schedule.datetime < now) {
-        // Move to tomorrow at same time, or tomorrow 10 AM if time is in the past
-        const tomorrow = getTomorrowMorning();
-        const originalTime = responsibility.schedule.datetime;
-        tomorrow.setHours(originalTime.getHours(), originalTime.getMinutes(), 0, 0);
+      const scheduleDate = new Date(responsibility.schedule.datetime);
+      
+      // Only adjust if the date is actually in the past (more than 5 minutes ago)
+      // This allows for slight timezone or parsing differences
+      const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+      
+      if (scheduleDate < fiveMinutesAgo) {
+        // Date is in the past, move to tomorrow at same time
+        const tomorrow = new Date(scheduleDate);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        
+        // If tomorrow at same time is still in the past, use tomorrow 10 AM
         if (tomorrow < now) {
           responsibility.schedule.datetime = getTomorrowMorning();
         } else {
           responsibility.schedule.datetime = tomorrow;
         }
       }
+      // If date is valid (in future or very recent), keep it as is
     }
 
     // 2. Create calendar event if schedule exists
@@ -101,9 +109,20 @@ export const AIUnderstandingSheet: React.FC<AIUnderstandingSheetProps> = ({
 
     // 3. Add responsibility (with calendar event ID if created)
     await addResponsibility(responsibility);
-    await scheduleResponsibilityNotifications(responsibility);
+    
+    // 4. Schedule notifications
+    try {
+      await scheduleResponsibilityNotifications(responsibility);
+    } catch (error) {
+      console.error('Failed to schedule notifications:', error);
+      // Continue even if notifications fail
+    }
+    
+    // 5. Reload responsibilities to update UI
+    const { loadResponsibilities } = useResponsibilitiesStore.getState();
+    await loadResponsibilities();
 
-    // 2. Process list actions if any
+    // 5. Process list actions if any
     if (parsedCommand.listActions && parsedCommand.listActions.length > 0) {
       // Ensure lists are loaded
       await loadLists();
@@ -115,26 +134,31 @@ export const AIUnderstandingSheet: React.FC<AIUnderstandingSheetProps> = ({
         );
 
         if (existingList) {
-          // Add items to existing list
-          const newItems = listAction.items.map(item => ({
-            id: uuidv4(),
-            label: item,
-            category: '',
-            checked: false,
-            createdAt: new Date(),
-          }));
+          // Add items to existing list (avoid duplicates)
+          const existingLabels = existingList.items.map(i => i.label.toLowerCase());
+          const newItems = listAction.items
+            .filter(item => !existingLabels.includes(item.toLowerCase()))
+            .map(item => ({
+              id: uuidv4(),
+              label: item.trim(),
+              category: '',
+              checked: false,
+              createdAt: new Date(),
+            }));
 
-          const updatedItems = [...existingList.items, ...newItems];
-          await updateList(existingList.id, { items: updatedItems });
+          if (newItems.length > 0) {
+            const updatedItems = [...existingList.items, ...newItems];
+            await updateList(existingList.id, { items: updatedItems });
+          }
         } else {
           // Create new list if it doesn't exist
           const newList: List = {
             id: uuidv4(),
             name: listAction.listName,
-            type: 'custom',
+            type: 'market',
             items: listAction.items.map(item => ({
               id: uuidv4(),
-              label: item,
+              label: item.trim(),
               category: '',
               checked: false,
               createdAt: new Date(),
@@ -145,6 +169,9 @@ export const AIUnderstandingSheet: React.FC<AIUnderstandingSheetProps> = ({
           await useListsStore.getState().addList(newList);
         }
       }
+      
+      // Reload lists to update UI
+      await loadLists();
     }
 
     onClose();
