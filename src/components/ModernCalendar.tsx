@@ -46,6 +46,7 @@ export const ModernCalendar: React.FC<ModernCalendarProps> = ({
     const today = new Date();
     setSelectedDate(today);
     onDateSelect?.(today);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Get responsibilities for a specific day
@@ -205,9 +206,13 @@ export const ModernCalendar: React.FC<ModernCalendarProps> = ({
       {selectedDate && (
         <View style={styles.selectedDaySection}>
           <Text style={styles.selectedDayTitle}>
-            {isToday(selectedDate) ? 'Bugün' : isTomorrow(selectedDate) ? 'Yarın' : formatDate(selectedDate)}
+            {isToday(selectedDate) ? 'Bugün' : isTomorrow(selectedDate) ? 'Yarın' : isYesterday(selectedDate) ? 'Dün' : formatDate(selectedDate)}
           </Text>
-          <ScrollView style={styles.responsibilitiesList} showsVerticalScrollIndicator={false}>
+          <ScrollView 
+            style={styles.responsibilitiesList} 
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.responsibilitiesListContent}
+          >
             {(() => {
               const dayEvents = getCalendarEventsForDay(selectedDate);
               const allItems = [
@@ -431,6 +436,9 @@ const styles = StyleSheet.create({
   },
   responsibilitiesList: {
     flex: 1,
+  },
+  responsibilitiesListContent: {
+    paddingBottom: spacing.md,
   },
   responsibilityCard: {
     padding: spacing.md,

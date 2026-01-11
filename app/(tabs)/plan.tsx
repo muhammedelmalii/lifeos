@@ -50,6 +50,7 @@ export default function PlanScreen() {
   };
 
   const handleResponsibilityPress = (responsibility: Responsibility) => {
+    hapticFeedback.medium();
     router.push(`/responsibility/${responsibility.id}`);
   };
 
