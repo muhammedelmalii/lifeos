@@ -13,7 +13,10 @@ import { formatTime } from '@/utils/date';
 import { hapticFeedback } from '@/utils/haptics';
 import { AIUnderstandingSheet } from '@/components/AIUnderstandingSheet';
 import { QueryResultsSheet } from '@/components/QueryResultsSheet';
-import { handleListOnlyCommand, handleQueryCommand } from './homeHelpers';
+import { handleListOnlyCommand, handleQueryCommand, handleDynamicScheduling } from './homeHelpers';
+import { processBillImage, createPaymentReminder } from '@/services/billProcessor';
+import { useNotesStore } from '@/store/notes';
+import { v4 as uuidv4 } from 'uuid';
 
 interface ChatMessage {
   id: string;
@@ -40,16 +43,18 @@ export default function HomeScreen() {
   
   const { loadResponsibilities } = useResponsibilitiesStore();
   const { loadLists } = useListsStore();
+  const { addNote, loadNotes } = useNotesStore();
 
   useEffect(() => {
     loadResponsibilities();
     loadLists();
+    loadNotes();
     
     // Welcome message
     setMessages([{
       id: 'welcome',
       type: 'assistant',
-      text: 'Merhaba! Size nasıl yardımcı olabilirim? Görev ekleyebilir, liste oluşturabilir veya sorular sorabilirsiniz.',
+      text: 'Merhaba! Size nasıl yardımcı olabilirim? Görev ekleyebilir, liste oluşturabilir, not alabilir veya sorular sorabilirsiniz.',
       timestamp: new Date(),
     }]);
   }, []);
@@ -125,6 +130,36 @@ export default function HomeScreen() {
         return;
       }
 
+      // Check if this is a note command
+      if (parsed.actionType === 'note' || text.toLowerCase().match(/^(not|note|not al|not:)/i)) {
+        const noteContent = parsed.description || parsed.title || text.replace(/^(not|note|not al|not:)\s*/i, '').trim();
+        if (noteContent) {
+          const note = {
+            id: uuidv4(),
+            content: noteContent,
+            tags: parsed.category ? [parsed.category] : undefined,
+            category: parsed.category,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            archived: false,
+          };
+          await addNote(note);
+          addMessage('assistant', '✅ Not kaydedildi!');
+          showToast('Not kaydedildi', 'success');
+          setIsProcessingCommand(false);
+          return;
+        }
+      }
+
+      // Check if this is a dynamic scheduling command (e.g., "haftada 3 gün spor")
+      if (parsed.schedule?.type === 'recurring' || text.toLowerCase().match(/(haftada|her gün|günlük)/i)) {
+        const handled = await handleDynamicScheduling(parsed, text, addMessage, showToast);
+        if (handled) {
+          setIsProcessingCommand(false);
+          return;
+        }
+      }
+
       // Normal command - needs confirmation
       setParsedCommand(parsed);
       setOriginalText(text);
@@ -182,6 +217,15 @@ export default function HomeScreen() {
           return;
         }
         
+        // Check if this is a dynamic scheduling command
+        if (parsed.schedule?.type === 'recurring' || text.toLowerCase().match(/(haftada|her gün|günlük)/i)) {
+          const handled = await handleDynamicScheduling(parsed, text, addMessage, showToast);
+          if (handled) {
+            setIsProcessingCommand(false);
+            return;
+          }
+        }
+        
         setParsedCommand(parsed);
         setOriginalText(text);
         setCreatedFrom('voice');
@@ -212,6 +256,26 @@ export default function HomeScreen() {
         return;
       }
       
+      showToast('Fotoğraf işleniyor...', 'info');
+      
+      // First, try to process as bill
+      const billData = await processBillImage(uri);
+      
+      if (billData) {
+        // It's a bill - create payment reminder
+        addMessage('user', `📷 Fatura görüntüsü gönderildi`);
+        showToast('Fatura işleniyor...', 'info');
+        
+        const responsibilityId = await createPaymentReminder(billData);
+        await loadResponsibilities();
+        
+        addMessage('assistant', `✅ ${billData.vendor} faturası için ödeme hatırlatıcısı oluşturuldu!\nTutar: ${billData.amount.toFixed(2)} TL\nSon Ödeme: ${new Date(billData.dueDate).toLocaleDateString('tr-TR')}`);
+        showToast('Fatura hatırlatıcısı oluşturuldu!', 'success');
+        setIsProcessingCommand(false);
+        return;
+      }
+      
+      // Not a bill - try OCR text extraction
       const ocrResult = await extractTextFromImage(uri);
       const text = ocrResult.text;
       
@@ -245,12 +309,22 @@ export default function HomeScreen() {
           return;
         }
         
+        // Check if this is a dynamic scheduling command
+        if (parsed.schedule?.type === 'recurring' || text.toLowerCase().match(/(haftada|her gün|günlük)/i)) {
+          const handled = await handleDynamicScheduling(parsed, text, addMessage, showToast);
+          if (handled) {
+            setIsProcessingCommand(false);
+            return;
+          }
+        }
+        
         setParsedCommand(parsed);
         setOriginalText(text);
         setCreatedFrom('photo');
         setShowAISheet(true);
         setIsProcessingCommand(false);
       } else {
+        addMessage('assistant', 'Fotoğraftan metin çıkarılamadı. Lütfen daha net bir görüntü gönderin.');
         setIsProcessingCommand(false);
       }
     } catch (error) {
@@ -367,11 +441,16 @@ export default function HomeScreen() {
       />
 
       {/* Query Results Sheet */}
-      <QueryResultsSheet
-        visible={showQueryResults}
-        onClose={() => setShowQueryResults(false)}
-        results={queryResults}
-      />
+      {queryResults && (
+        <QueryResultsSheet
+          visible={showQueryResults}
+          onClose={() => {
+            setShowQueryResults(false);
+            setQueryResults(null);
+          }}
+          results={queryResults}
+        />
+      )}
     </SafeAreaView>
   );
 }

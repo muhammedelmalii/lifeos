@@ -2,6 +2,8 @@ import { useListsStore } from '@/store/lists';
 import { useResponsibilitiesStore } from '@/store/responsibilities';
 import { List } from '@/types/domain';
 import { v4 as uuidv4 } from 'uuid';
+import { findOptimalSlots, createScheduledResponsibilities, SchedulingOptions } from '@/services/dynamicScheduling';
+import { parseCommandWithAI, ParsedCommand } from '@/services/aiParser';
 
 interface ChatMessage {
   id: string;
@@ -137,3 +139,75 @@ export const handleQueryCommand = async (
   }
 };
 
+/**
+ * Handle dynamic scheduling commands (e.g., "haftada 3 gün spor")
+ */
+export const handleDynamicScheduling = async (
+  parsed: ParsedCommand,
+  originalText: string,
+  addMessage: (type: 'user' | 'assistant' | 'system', text: string, data?: any) => void,
+  showToast: (message: string, type?: 'success' | 'error' | 'warning' | 'info') => void
+): Promise<boolean> => {
+  try {
+    const lowerText = originalText.toLowerCase();
+    
+    // Check if this is a dynamic scheduling command
+    // Patterns: "haftada 3 gün spor", "her gün ingilizce çalış", "haftada 2 kez yoga"
+    const weeklyPattern = /haftada\s+(\d+)\s*(?:gün|kez|defa)/i;
+    const dailyPattern = /her\s+gün|günlük/i;
+    const weeklyMatch = lowerText.match(weeklyPattern);
+    const isDaily = dailyPattern.test(lowerText);
+    
+    if (!weeklyMatch && !isDaily && !parsed.schedule?.rrule) {
+      return false; // Not a dynamic scheduling command
+    }
+
+    // Extract scheduling options
+    const options: SchedulingOptions = {
+      frequency: isDaily ? 'daily' : 'weekly',
+      count: weeklyMatch ? parseInt(weeklyMatch[1], 10) : undefined,
+      durationMinutes: parsed.energyRequired === 'high' ? 60 : 30,
+      energyLevel: parsed.energyRequired || 'medium',
+      preferredTimes: parsed.energyRequired === 'high' ? ['morning'] : ['morning', 'evening'],
+    };
+
+    // Extract title and description
+    const title = parsed.title || originalText;
+    const description = parsed.description || originalText;
+
+    addMessage('assistant', 'En uygun zamanları buluyorum...');
+    
+    // Find optimal slots
+    const slots = await findOptimalSlots(options);
+    
+    if (slots.length === 0) {
+      addMessage('assistant', 'Üzgünüm, uygun zaman bulamadım. Takviminiz çok dolu görünüyor.');
+      return true;
+    }
+
+    // Create responsibilities for each slot
+    const responsibilityIds = await createScheduledResponsibilities(
+      title,
+      description,
+      slots,
+      options
+    );
+
+    const { loadResponsibilities } = useResponsibilitiesStore.getState();
+    await loadResponsibilities();
+
+    const count = slots.length;
+    const message = isDaily 
+      ? `✅ Her gün "${title}" için hatırlatıcı oluşturuldu!`
+      : `✅ Haftada ${count} gün "${title}" için en uygun zamanlarda hatırlatıcılar oluşturuldu!`;
+    
+    addMessage('assistant', message);
+    showToast(message, 'success');
+    
+    return true;
+  } catch (error) {
+    console.error('Error in handleDynamicScheduling:', error);
+    addMessage('assistant', `Planlama sırasında hata: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`);
+    return false;
+  }
+};

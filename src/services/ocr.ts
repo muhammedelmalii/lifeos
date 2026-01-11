@@ -15,23 +15,42 @@ export interface OCRResult {
 // MVP: Mock OCR service
 // In production, integrate with a real OCR service (Google Vision, Tesseract, etc.)
 export const extractTextFromImage = async (uri: string): Promise<OCRResult> => {
-  // Mock implementation - in production, call actual OCR API
-  // For MVP, return mock data based on image analysis
+  // In production, integrate with Google Vision API, Tesseract, or similar
+  // For now, use mock implementation with basic detection
   
   // Simulate processing delay
   await new Promise((resolve) => setTimeout(resolve, 1000));
 
-  // Mock detection logic
+  // Try to detect if it's a bill based on image metadata or filename
+  // In production, you would:
+  // 1. Send image to OCR service (Google Vision, Tesseract.js, etc.)
+  // 2. Extract text
+  // 3. Use AI/NLP to detect bill patterns
+  // 4. Extract structured data (dates, amounts, vendor)
+  
+  // For MVP, return a generic result that will be processed by billProcessor
+  // The billProcessor will try to extract bill data from text
   const mockResult: OCRResult = {
-    text: 'Utility Bill\nDue Date: Oct 24, 2023\nAmount: $125.50',
-    confidence: 0.98,
-    detectedType: 'bill',
-    extractedData: {
-      dueDate: new Date('2023-10-24'),
-      amount: 125.50,
-      vendor: 'Utility Company',
-    },
+    text: '', // Empty - will be filled by actual OCR in production
+    confidence: 0.8,
+    detectedType: undefined, // Will be detected by billProcessor
+    extractedData: undefined, // Will be extracted by billProcessor
   };
+
+  // In production, call actual OCR API:
+  // const apiKey = process.env.EXPO_PUBLIC_GOOGLE_VISION_API_KEY;
+  // const response = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`, {
+  //   method: 'POST',
+  //   headers: { 'Content-Type': 'application/json' },
+  //   body: JSON.stringify({
+  //     requests: [{
+  //       image: { source: { imageUri: uri } },
+  //       features: [{ type: 'TEXT_DETECTION' }],
+  //     }],
+  //   }),
+  // });
+  // const data = await response.json();
+  // mockResult.text = data.responses[0]?.textAnnotations[0]?.description || '';
 
   return mockResult;
 };

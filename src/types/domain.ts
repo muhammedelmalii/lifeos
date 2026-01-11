@@ -27,6 +27,10 @@ export interface ResponsibilityMetadata {
   links?: string[];
   location?: string;
   contactId?: string;
+  billAmount?: number;
+  billDueDate?: string;
+  billVendor?: string;
+  billType?: 'utility' | 'credit' | 'internet' | 'phone' | 'rent' | 'insurance' | 'other';
 }
 
 export interface Responsibility {
@@ -93,4 +97,38 @@ export interface Briefing {
   type: BriefingType;
   contentBlocks: BriefingContentBlock[];
 }
+
+// Notes
+export interface Note {
+  id: string;
+  content: string;
+  tags?: string[];
+  category?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  archived?: boolean;
+}
+
+// Goals
+export interface Goal {
+  id: string;
+  title: string;
+  description?: string;
+  targetDate?: Date;
+  category?: string;
+  progress: number; // 0-100
+  milestones?: Milestone[];
+  status: 'active' | 'completed' | 'paused' | 'cancelled';
+  createdAt: Date;
+  updatedAt: Date;
+  completedAt?: Date;
+}
+
+export interface Milestone {
+  id: string;
+  title: string;
+  completed: boolean;
+  completedAt?: Date;
+}
+
 

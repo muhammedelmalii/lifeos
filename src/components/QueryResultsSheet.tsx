@@ -24,7 +24,7 @@ interface QueryResultsSheetProps {
     category?: string;
     list?: List;
     items: Responsibility[] | any[];
-  };
+  } | null;
 }
 
 export const QueryResultsSheet: React.FC<QueryResultsSheetProps> = ({
@@ -33,6 +33,10 @@ export const QueryResultsSheet: React.FC<QueryResultsSheetProps> = ({
   results,
 }) => {
   const router = useRouter();
+
+  if (!results) {
+    return null;
+  }
 
   const getTitle = () => {
     if (results.type === 'list') {
@@ -103,14 +107,18 @@ export const QueryResultsSheet: React.FC<QueryResultsSheetProps> = ({
                         {item.description && (
                           <Text style={styles.itemDescription}>{item.description}</Text>
                         )}
-                        <View style={styles.itemMeta}>
-                          <Text style={styles.itemTime}>
-                            {formatDateTime(item.schedule.datetime)}
-                          </Text>
-                          {item.category && (
-                            <Text style={styles.itemCategory}>• {item.category}</Text>
-                          )}
-                        </View>
+                        {(item.schedule?.datetime || item.category) && (
+                          <View style={styles.itemMeta}>
+                            {item.schedule?.datetime && (
+                              <Text style={styles.itemTime}>
+                                {formatDateTime(item.schedule.datetime)}
+                              </Text>
+                            )}
+                            {item.category && (
+                              <Text style={styles.itemCategory}>• {item.category}</Text>
+                            )}
+                          </View>
+                        )}
                       </Card>
                     </TouchableOpacity>
                   ))

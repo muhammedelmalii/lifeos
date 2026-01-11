@@ -17,7 +17,7 @@ export interface ParsedCommand {
   queryListName?: string;
   // Auto-execution flags
   autoExecute?: boolean; // If true, execute directly without showing confirmation sheet
-  actionType?: 'create' | 'list' | 'query' | 'update' | 'delete'; // Type of action to perform
+  actionType?: 'create' | 'list' | 'query' | 'update' | 'delete' | 'note'; // Type of action to perform
 }
 
 // Rule-based parser for MVP
@@ -225,35 +225,61 @@ Parse the user's command and return a JSON object with:
 - queryListName: List name to query (if querying a specific list)
 - listActions: Optional array of {listName, items[]}. CRITICAL: For simple shopping commands like "ekmek al", "buy bread", "süt al", ONLY create listActions, DO NOT create a responsibility (set title to empty string or null).
 - autoExecute: true for simple commands that should be executed immediately without confirmation (shopping lists, simple queries, etc.)
-- actionType: 'create' | 'list' | 'query' | 'update' | 'delete' - The type of action to perform
+- actionType: 'create' | 'list' | 'query' | 'update' | 'delete' | 'note' - The type of action to perform
 
 IMPORTANT RULES - ACT AS A PERSONAL ASSISTANT:
-1. Simple shopping items (e.g., "ekmek al", "buy bread", "süt al", "milk al") → 
-   - autoExecute: true
-   - actionType: 'list'
-   - ONLY listActions, NO responsibility (title: null or empty)
-   - Execute immediately without asking
 
-2. Shopping with schedule (e.g., "tomorrow buy bread") → 
-   - autoExecute: false (needs confirmation for schedule)
-   - actionType: 'create'
+SHOPPING COMMANDS:
+1. "ekmek bitmiş" / "ekmek bitti" / "ekmek yok" / "bread is finished" → 
+   - autoExecute: true, actionType: 'list'
+   - listActions: [{listName: "Shopping List", items: ["ekmek"]}]
+   - title: null
+
+2. Simple shopping (e.g., "ekmek al", "buy bread", "süt al", "milk al") → 
+   - autoExecute: true, actionType: 'list'
+   - ONLY listActions, NO responsibility (title: null)
+   - Execute immediately
+
+3. Multiple items (e.g., "ekmek, süt, yumurta al", "ekmek bitmiş süt de yok") → 
+   - autoExecute: true, actionType: 'list'
+   - Extract ALL items: ["ekmek", "süt", "yumurta"]
+   - Execute immediately
+
+4. Shopping with schedule (e.g., "tomorrow buy bread") → 
+   - autoExecute: false, actionType: 'create'
    - BOTH listActions AND responsibility
 
-3. Multiple items (e.g., "ekmek, süt, yumurta al") → 
-   - autoExecute: true
-   - Extract all items into listActions
-   - Execute immediately
+5. Shopping items → listName: "Shopping List" or "Market List" or "Grocery List" (use "Shopping List" as default)
 
-4. Query commands (e.g., "show shopping list", "bugünkü işleri göster") → 
-   - autoExecute: true
-   - actionType: 'query'
-   - Execute immediately
+QUERY COMMANDS:
+6. "alışveriş listesi" / "alışveriş listesini göster" / "show shopping list" → 
+   - autoExecute: true, actionType: 'query', isQuery: true
+   - queryType: 'list', queryListName: "Shopping List"
 
-5. Simple task creation (e.g., "call John tomorrow") → 
-   - autoExecute: false (needs confirmation)
-   - actionType: 'create'
+7. "bugünkü işleri göster" / "show today's tasks" → 
+   - autoExecute: true, actionType: 'query', isQuery: true
+   - queryType: 'show'
 
-6. Shopping items → listName: "Shopping List" or "Market List" or "Grocery List" (use "Shopping List" as default)
+RECURRING TASKS:
+8. "her gün ingilizce çalışmalıyım" / "her gün spor yapmak istiyorum" / "haftada 3 gün spor" / "haftada 2 kez yoga" → 
+   - actionType: 'create', autoExecute: false
+   - schedule: {type: 'recurring', rrule: 'FREQ=DAILY'} or detect weekly pattern
+   - category: 'learning' or 'exercise' based on context
+   - energyRequired: 'high' for exercise, 'medium' for learning
+   - reminderStyle: 'persistent' (for habits)
+   - IMPORTANT: For "haftada X gün" patterns, set schedule.type: 'recurring' and include frequency info
+
+9. Simple task creation (e.g., "call John tomorrow") → 
+   - autoExecute: false, actionType: 'create'
+   - Needs confirmation
+
+NOTES:
+10. "not al: ..." / "not: ..." / "note: ..." → 
+    - actionType: 'note', autoExecute: true
+    - Save as note, not responsibility
+
+BILLS/PAYMENTS:
+11. Bill/fatura related commands will be handled separately via OCR processing
 
 Be smart about:
 - Understanding context and intent
