@@ -17,6 +17,7 @@ import { handleListOnlyCommand, handleQueryCommand, handleDynamicScheduling } fr
 import { processBillImage, createPaymentReminder } from '@/services/billProcessor';
 import { useNotesStore } from '@/store/notes';
 import { v4 as uuidv4 } from 'uuid';
+import { handleError } from '@/services/errorHandler';
 
 interface ChatMessage {
   id: string;
@@ -169,7 +170,9 @@ export default function HomeScreen() {
     } catch (error) {
       console.error('Failed to parse command:', error);
       hapticFeedback.error();
-      addMessage('assistant', `Üzgünüm, komutu işlerken bir hata oluştu: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`);
+      const appError = handleError(error);
+      addMessage('assistant', `❌ ${appError.userMessage}`);
+      showToast(appError.userMessage, 'error');
       setIsProcessingCommand(false);
     }
   };
@@ -237,7 +240,9 @@ export default function HomeScreen() {
     } catch (error) {
       console.error('Voice recognition error:', error);
       hapticFeedback.error();
-      addMessage('assistant', 'Ses tanıma hatası oluştu. Lütfen tekrar deneyin.');
+      const appError = handleError(error);
+      addMessage('assistant', `❌ ${appError.userMessage}`);
+      showToast(appError.userMessage, 'error');
       setIsListening(false);
       setIsProcessingCommand(false);
     }
@@ -330,7 +335,9 @@ export default function HomeScreen() {
     } catch (error) {
       console.error('Photo processing error:', error);
       hapticFeedback.error();
-      addMessage('assistant', 'Fotoğraf işleme hatası oluştu.');
+      const appError = handleError(error);
+      addMessage('assistant', `❌ ${appError.userMessage}`);
+      showToast(appError.userMessage, 'error');
       setIsProcessingCommand(false);
     }
   };
