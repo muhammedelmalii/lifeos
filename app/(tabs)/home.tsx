@@ -436,16 +436,18 @@ export default function HomeScreen() {
       </KeyboardAvoidingView>
 
       {/* AI Understanding Sheet */}
-      <AIUnderstandingSheet
-        visible={showAISheet}
-        onClose={() => {
-          setShowAISheet(false);
-          hapticFeedback.warning();
-        }}
-        parsedCommand={parsedCommand}
-        originalText={originalText}
-        createdFrom={createdFrom}
-      />
+      {parsedCommand && (
+        <AIUnderstandingSheet
+          visible={showAISheet}
+          onClose={() => {
+            setShowAISheet(false);
+            hapticFeedback.warning();
+          }}
+          parsedCommand={parsedCommand}
+          originalText={originalText}
+          createdFrom={createdFrom}
+        />
+      )}
 
       {/* Query Results Sheet */}
       {queryResults && (

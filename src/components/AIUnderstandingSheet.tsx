@@ -25,7 +25,7 @@ import { hapticFeedback } from '@/utils/haptics';
 interface AIUnderstandingSheetProps {
   visible: boolean;
   onClose: () => void;
-  parsedCommand: ParsedCommand;
+  parsedCommand: ParsedCommand | null;
   originalText: string;
   createdFrom: 'text' | 'voice' | 'photo';
 }
@@ -40,11 +40,16 @@ export const AIUnderstandingSheet: React.FC<AIUnderstandingSheetProps> = ({
   const { addResponsibility } = useResponsibilitiesStore();
   const { updateList, loadLists } = useListsStore();
 
+  // Don't render if parsedCommand is null
+  if (!parsedCommand || !parsedCommand.title) {
+    return null;
+  }
+
   const handleConfirm = async () => {
     // 1. Create the responsibility
     const responsibility = {
       id: uuidv4(),
-      title: parsedCommand.title,
+      title: parsedCommand.title || 'Untitled Task',
       description: parsedCommand.description || originalText,
       category: parsedCommand.category, // Auto-categorized by GPT
       energyRequired: parsedCommand.energyRequired || 'medium',
