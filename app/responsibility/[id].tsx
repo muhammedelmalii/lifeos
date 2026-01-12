@@ -10,6 +10,7 @@ import { Responsibility } from '@/types';
 import { t } from '@/i18n';
 import { hapticFeedback } from '@/utils/haptics';
 import { useToast } from '@/components/ui';
+import { EditResponsibilityModal } from '@/components/EditResponsibilityModal';
 
 export default function ResponsibilityDetailScreen() {
   const router = useRouter();
@@ -17,6 +18,7 @@ export default function ResponsibilityDetailScreen() {
   const { responsibilities, updateResponsibility, loadResponsibilities } = useResponsibilitiesStore();
   const { showToast } = useToast();
   const [responsibility, setResponsibility] = useState<Responsibility | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
     const resp = responsibilities.find((r) => r.id === id);
@@ -145,7 +147,10 @@ export default function ResponsibilityDetailScreen() {
                   {formatDateTime(responsibility.schedule.datetime)}
                 </Text>
               </View>
-              <TouchableOpacity style={styles.editButton}>
+              <TouchableOpacity 
+                style={styles.editButton}
+                onPress={() => setShowEditModal(true)}
+              >
                 <Icon name="edit" size={18} color={colors.accent.primary} />
                 <Text style={styles.editLink}>{t('responsibility.edit')}</Text>
               </TouchableOpacity>
@@ -191,6 +196,18 @@ export default function ResponsibilityDetailScreen() {
           />
         </View>
       </ScrollView>
+
+      {/* Edit Modal */}
+      <EditResponsibilityModal
+        visible={showEditModal}
+        responsibility={responsibility}
+        onClose={() => setShowEditModal(false)}
+        onSave={async (updates) => {
+          await updateResponsibility(id, updates);
+          await loadResponsibilities();
+          showToast('Görev güncellendi', 'success');
+        }}
+      />
     </SafeAreaView>
   );
 }

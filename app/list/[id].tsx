@@ -21,6 +21,8 @@ export default function ListDetailScreen() {
   const [list, setList] = useState<List | null>(null);
   const [newItemText, setNewItemText] = useState('');
   const [isAddingItem, setIsAddingItem] = useState(false);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editingItemText, setEditingItemText] = useState('');
 
   useEffect(() => {
     loadLists();
@@ -63,6 +65,28 @@ export default function ListDetailScreen() {
     await updateList(list.id, { items: updatedItems });
     await loadLists();
     showToast('Öğe silindi', 'success');
+  };
+
+  const handleStartEditItem = (itemId: string, currentText: string) => {
+    setEditingItemId(itemId);
+    setEditingItemText(currentText);
+  };
+
+  const handleSaveEditItem = async () => {
+    if (!editingItemId || !editingItemText.trim()) {
+      setEditingItemId(null);
+      return;
+    }
+
+    hapticFeedback.medium();
+    const updatedItems = list.items.map((item) =>
+      item.id === editingItemId ? { ...item, label: editingItemText.trim() } : item
+    );
+    await updateList(list.id, { items: updatedItems });
+    await loadLists();
+    setEditingItemId(null);
+    setEditingItemText('');
+    showToast('Öğe güncellendi', 'success');
   };
 
   const handleAddItem = async () => {
@@ -192,22 +216,47 @@ export default function ListDetailScreen() {
                 variant="elevated"
                 style={styles.itemCard}
               >
-                <View style={styles.itemRow}>
-                  <TouchableOpacity
-                    style={styles.checkbox}
-                    onPress={() => handleToggleItem(item.id)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.checkboxInner} />
-                  </TouchableOpacity>
-                  <Text style={styles.itemLabel}>{item.label}</Text>
-                  <TouchableOpacity
-                    onPress={() => handleDeleteItem(item.id)}
-                    style={styles.itemDelete}
-                  >
-                    <Icon name="x" size={16} color={colors.text.tertiary} />
-                  </TouchableOpacity>
-                </View>
+                {editingItemId === item.id ? (
+                  <View style={styles.itemEditRow}>
+                    <TextInput
+                      style={styles.itemEditInput}
+                      value={editingItemText}
+                      onChangeText={setEditingItemText}
+                      autoFocus
+                      onSubmitEditing={handleSaveEditItem}
+                      onBlur={handleSaveEditItem}
+                    />
+                    <TouchableOpacity
+                      onPress={handleSaveEditItem}
+                      style={styles.itemSaveButton}
+                    >
+                      <Icon name="check" size={16} color={colors.accent.primary} />
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View style={styles.itemRow}>
+                    <TouchableOpacity
+                      style={styles.checkbox}
+                      onPress={() => handleToggleItem(item.id)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.checkboxInner} />
+                    </TouchableOpacity>
+                    <Text style={styles.itemLabel}>{item.label}</Text>
+                    <TouchableOpacity
+                      onPress={() => handleStartEditItem(item.id, item.label)}
+                      style={styles.itemEdit}
+                    >
+                      <Icon name="edit" size={16} color={colors.text.secondary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleDeleteItem(item.id)}
+                      style={styles.itemDelete}
+                    >
+                      <Icon name="x" size={16} color={colors.text.tertiary} />
+                    </TouchableOpacity>
+                  </View>
+                )}
               </AnimatedCard>
             ))}
           </View>
@@ -428,6 +477,27 @@ const styles = StyleSheet.create({
     color: colors.text.tertiary,
   },
   itemDelete: {
+    padding: spacing.xs,
+  },
+  itemEdit: {
+    padding: spacing.xs,
+  },
+  itemEditRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  itemEditInput: {
+    flex: 1,
+    ...typography.body,
+    color: colors.text.primary,
+    backgroundColor: colors.background.primary,
+    borderRadius: 8,
+    padding: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.accent.primary,
+  },
+  itemSaveButton: {
     padding: spacing.xs,
   },
 });

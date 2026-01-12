@@ -13,11 +13,13 @@ import { formatTime } from '@/utils/date';
 import { hapticFeedback } from '@/utils/haptics';
 import { AIUnderstandingSheet } from '@/components/AIUnderstandingSheet';
 import { QueryResultsSheet } from '@/components/QueryResultsSheet';
+import { ActionButtons } from '@/components/ActionButtons';
 import { handleListOnlyCommand, handleQueryCommand, handleDynamicScheduling } from './homeHelpers';
 import { processBillImage, createPaymentReminder } from '@/services/billProcessor';
 import { useNotesStore } from '@/store/notes';
 import { v4 as uuidv4 } from 'uuid';
 import { handleError } from '@/services/errorHandler';
+import { generateActionResponse, parseLongVoiceInput, analyzePhotoForActions, ActionButton } from '@/services/actionAssistant';
 
 interface ChatMessage {
   id: string;
@@ -25,6 +27,7 @@ interface ChatMessage {
   text: string;
   timestamp: Date;
   data?: any;
+  actions?: ActionButton[]; // Aksiyon butonları
 }
 
 export default function HomeScreen() {
@@ -78,13 +81,14 @@ export default function HomeScreen() {
     }, 100);
   }, [messages]);
 
-  const addMessage = (type: 'user' | 'assistant' | 'system', text: string, data?: any) => {
+  const addMessage = (type: 'user' | 'assistant' | 'system', text: string, data?: any, actions?: ActionButton[]) => {
     setMessages(prev => [...prev, {
       id: Date.now().toString(),
       type,
       text,
       timestamp: new Date(),
       data,
+      actions,
     }]);
   };
 
@@ -101,6 +105,35 @@ export default function HomeScreen() {
 
     try {
       showToast('İşleniyor...', 'info');
+      
+      // Yeni aksiyon odaklı yaklaşım
+      const actionResponse = await generateActionResponse(text);
+      
+      // Eğer otomatik yapılacak aksiyonlar varsa, onları işle
+      if (actionResponse.parsedActions) {
+        const parsed = await parseCommandWithAI(text, 'text');
+        
+        // Auto-execute logic
+        if (parsed.autoExecute) {
+          if (parsed.isQuery || parsed.actionType === 'query') {
+            await handleQueryCommand(parsed, text, setQueryResults, setShowQueryResults, addMessage);
+            setIsProcessingCommand(false);
+            return;
+          }
+          if (parsed.actionType === 'list' || (parsed.listActions && parsed.listActions.length > 0 && (!parsed.title || parsed.title?.trim() === ''))) {
+            await handleListOnlyCommand(parsed, addMessage, showToast);
+            // Aksiyon odaklı cevap ekle
+            addMessage('assistant', actionResponse.message, null, actionResponse.actions);
+            setIsProcessingCommand(false);
+            return;
+          }
+        }
+      }
+      
+      // Normal flow - aksiyon odaklı cevap göster
+      addMessage('assistant', actionResponse.message, null, actionResponse.actions);
+      
+      // Eğer hala eski sistemi kullanmak istiyorsak, parseCommandWithAI'yi de çalıştır
       const parsed = await parseCommandWithAI(text, 'text');
 
       // Auto-execute logic
@@ -125,7 +158,7 @@ export default function HomeScreen() {
       }
 
       // Check if this is a simple list action
-      if (parsed.listActions && parsed.listActions.length > 0 && (!parsed.title || parsed.title.trim() === '')) {
+      if (parsed.listActions && parsed.listActions.length > 0 && (!parsed.title || parsed.title?.trim() === '')) {
         await handleListOnlyCommand(parsed, addMessage, showToast);
         setIsProcessingCommand(false);
         return;
@@ -193,6 +226,45 @@ export default function HomeScreen() {
       if (text.trim()) {
         addMessage('user', text);
         showToast('İşleniyor...', 'info');
+        
+        // Uzun konuşmaları parçalara ayır
+        const parsedVoice = await parseLongVoiceInput(text);
+        
+        // Her parçayı işle
+        const actions: any[] = [];
+        for (const part of parsedVoice.parts) {
+          if (part.parsed) {
+            if (part.type === 'shopping' && part.parsed.listActions) {
+              await handleListOnlyCommand(part.parsed, addMessage, showToast);
+            } else if (part.type === 'schedule' && part.parsed.title) {
+              // Schedule işle
+              const parsed = await parseCommandWithAI(part.content, 'voice');
+              if (parsed.schedule?.type === 'recurring' || part.content.toLowerCase().match(/(haftada|her gün|günlük)/i)) {
+                await handleDynamicScheduling(parsed, part.content, addMessage, showToast);
+              } else {
+                setParsedCommand(parsed);
+                setOriginalText(part.content);
+                setCreatedFrom('voice');
+                setShowAISheet(true);
+              }
+            } else if (part.type === 'task' && part.parsed.title) {
+              const parsed = await parseCommandWithAI(part.content, 'voice');
+              setParsedCommand(parsed);
+              setOriginalText(part.content);
+              setCreatedFrom('voice');
+              setShowAISheet(true);
+            }
+          }
+        }
+        
+        // Tek cevap ver
+        const summary = parsedVoice.summary || `Tamam. ${parsedVoice.parts.length} işlem yapıldı.`;
+        addMessage('assistant', summary);
+        
+        setIsProcessingCommand(false);
+        return;
+        
+        // Eski sistem (fallback)
         const parsed = await parseCommandWithAI(text, 'voice');
         
         if (parsed.autoExecute) {
@@ -214,7 +286,7 @@ export default function HomeScreen() {
           return;
         }
         
-        if (parsed.listActions && parsed.listActions.length > 0 && (!parsed.title || parsed.title.trim() === '')) {
+        if (parsed.listActions && parsed.listActions.length > 0 && (!parsed.title || parsed.title?.trim() === '')) {
           await handleListOnlyCommand(parsed, addMessage, showToast);
           setIsProcessingCommand(false);
           return;
@@ -285,8 +357,62 @@ export default function HomeScreen() {
       const text = ocrResult.text;
       
       if (text.trim()) {
-        addMessage('user', `📷 ${text}`);
+        addMessage('user', `📷 Fotoğraf gönderildi`);
         showToast('İşleniyor...', 'info');
+        
+        // Yeni fotoğraf analizi
+        const photoAnalysis = await analyzePhotoForActions(uri, text);
+        
+        // Fotoğraf tipine göre işle
+        if (photoAnalysis.detectedType === 'bill' && photoAnalysis.extractedData) {
+          // Fatura işleme
+          const billData = await processBillImage(uri);
+          if (billData) {
+            await createPaymentReminder(billData);
+            await loadResponsibilities();
+            addMessage('assistant', photoAnalysis.message, null, photoAnalysis.actions);
+            showToast('Fatura hatırlatıcısı oluşturuldu!', 'success');
+            setIsProcessingCommand(false);
+            return;
+          }
+        } else if (photoAnalysis.detectedType === 'refrigerator' && photoAnalysis.extractedData?.items) {
+          // Buzdolabı - eksik ürünleri listeye ekle
+          const parsed = {
+            listActions: [{
+              listName: 'Shopping List',
+              items: photoAnalysis.extractedData.items,
+            }],
+            autoExecute: true,
+            actionType: 'list' as const,
+          };
+          await handleListOnlyCommand(parsed, addMessage, showToast);
+          addMessage('assistant', photoAnalysis.message, null, photoAnalysis.actions);
+          setIsProcessingCommand(false);
+          return;
+        } else if (photoAnalysis.detectedType === 'note' && photoAnalysis.extractedData?.content) {
+          // Not olarak kaydet
+          const note = {
+            id: uuidv4(),
+            content: photoAnalysis.extractedData.content,
+            tags: photoAnalysis.extractedData.tags,
+            category: photoAnalysis.extractedData.category,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            archived: false,
+          };
+          await addNote(note);
+          addMessage('assistant', photoAnalysis.message, null, photoAnalysis.actions);
+          showToast('Not kaydedildi', 'success');
+          setIsProcessingCommand(false);
+          return;
+        } else if (photoAnalysis.detectedType === 'screenshot') {
+          // Ekran görüntüsü - plan revize et
+          addMessage('assistant', photoAnalysis.message, null, photoAnalysis.actions);
+          setIsProcessingCommand(false);
+          return;
+        }
+        
+        // Genel OCR metni ile devam et
         const parsed = await parseCommandWithAI(text, 'photo');
         
         if (parsed.autoExecute) {
@@ -295,7 +421,7 @@ export default function HomeScreen() {
             setIsProcessingCommand(false);
             return;
           }
-          if (parsed.actionType === 'list' || (parsed.listActions && parsed.listActions.length > 0 && (!parsed.title || parsed.title.trim() === ''))) {
+          if (parsed.actionType === 'list' || (parsed.listActions && parsed.listActions.length > 0 && (!parsed.title || parsed.title?.trim() === ''))) {
             await handleListOnlyCommand(parsed, addMessage, showToast);
             setIsProcessingCommand(false);
             return;
@@ -308,7 +434,7 @@ export default function HomeScreen() {
           return;
         }
         
-        if (parsed.listActions && parsed.listActions.length > 0 && (!parsed.title || parsed.title.trim() === '')) {
+        if (parsed.listActions && parsed.listActions.length > 0 && (!parsed.title || parsed.title?.trim() === '')) {
           await handleListOnlyCommand(parsed, addMessage, showToast);
           setIsProcessingCommand(false);
           return;
@@ -342,6 +468,22 @@ export default function HomeScreen() {
     }
   };
 
+  const { responsibilities } = useResponsibilitiesStore();
+  const { lists } = useListsStore();
+  const todayTasks = responsibilities.filter(r => {
+    if (!r.schedule?.datetime) return false;
+    const taskDate = new Date(r.schedule.datetime);
+    const today = new Date();
+    return taskDate.toDateString() === today.toDateString() && r.status === 'active';
+  });
+  const upcomingTasks = responsibilities.filter(r => {
+    if (!r.schedule?.datetime) return false;
+    const taskDate = new Date(r.schedule.datetime);
+    const now = new Date();
+    return taskDate > now && r.status === 'active';
+  }).slice(0, 3);
+  const activeLists = lists.filter(l => l.items.filter(i => !i.checked).length > 0);
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <KeyboardAvoidingView 
@@ -349,6 +491,42 @@ export default function HomeScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={90}
       >
+        {/* Quick Stats Bar */}
+        {(todayTasks.length > 0 || activeLists.length > 0) && (
+          <View style={styles.quickStats}>
+            {todayTasks.length > 0 && (
+              <TouchableOpacity
+                style={styles.quickStatItem}
+                onPress={() => router.push('/(tabs)/inbox')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.quickStatNumber}>{todayTasks.length}</Text>
+                <Text style={styles.quickStatLabel}>Bugün</Text>
+              </TouchableOpacity>
+            )}
+            {activeLists.length > 0 && (
+              <TouchableOpacity
+                style={styles.quickStatItem}
+                onPress={() => router.push('/(tabs)/lists')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.quickStatNumber}>{activeLists.length}</Text>
+                <Text style={styles.quickStatLabel}>Liste</Text>
+              </TouchableOpacity>
+            )}
+            {upcomingTasks.length > 0 && (
+              <TouchableOpacity
+                style={styles.quickStatItem}
+                onPress={() => router.push('/(tabs)/plan')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.quickStatNumber}>{upcomingTasks.length}</Text>
+                <Text style={styles.quickStatLabel}>Yaklaşan</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
         {/* Chat Messages */}
         <ScrollView
           ref={scrollViewRef}
@@ -379,6 +557,26 @@ export default function HomeScreen() {
                 >
                   {message.text}
                 </Text>
+                {message.actions && message.actions.length > 0 && (
+                  <ActionButtons
+                    actions={message.actions}
+                    onActionPress={async (action) => {
+                      // Aksiyon butonuna tıklandığında
+                      try {
+                        await action.action();
+                        // Mesajı güncelle
+                        setMessages(prev => prev.map(msg => 
+                          msg.id === message.id 
+                            ? { ...msg, actions: undefined } // Butonları kaldır
+                            : msg
+                        ));
+                      } catch (error) {
+                        console.error('Action error:', error);
+                        showToast('Aksiyon gerçekleştirilemedi', 'error');
+                      }
+                    }}
+                  />
+                )}
                 <Text style={styles.messageTime}>
                   {formatTime(message.timestamp)}
                 </Text>
@@ -575,5 +773,35 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: colors.background.primary,
     fontWeight: 'bold',
+  },
+  quickStats: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    gap: spacing.sm,
+  },
+  quickStatItem: {
+    flex: 1,
+    backgroundColor: colors.background.secondary,
+    borderRadius: 12,
+    padding: spacing.md,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border.primary,
+  },
+  quickStatNumber: {
+    ...typography.h2,
+    color: colors.accent.primary,
+    fontWeight: '700',
+    fontSize: 24,
+    marginBottom: spacing.xs / 2,
+  },
+  quickStatLabel: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    fontSize: 11,
+    textTransform: 'uppercase',
+    fontWeight: '600',
   },
 });
